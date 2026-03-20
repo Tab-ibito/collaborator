@@ -8,18 +8,18 @@ const $warningMessage = document.getElementById("warningMessage");
 /* event listeners */
 $loginButton.addEventListener("click", async (event) => {
     event.preventDefault();
-    await postEntry("http://localhost:1145/api/login", wrapEntryPayload());
+    await postAuth("http://localhost:1145/api/login", wrapAuthPayload());
 })
 
 $signupButton.addEventListener("click", async (event) => {
     event.preventDefault();
-    await postEntry("http://localhost:1145/api/register", wrapEntryPayload());
+    await postAuth("http://localhost:1145/api/register", wrapAuthPayload());
 })
 
 /* Helper functions */
 
 // 包装载荷
-const wrapEntryPayload = () => {
+const wrapAuthPayload = () => {
     const username = $usernameInput.value.trim();
     const password = $passwordInput.value.trim();
 
@@ -40,7 +40,7 @@ const wrapEntryPayload = () => {
 }
 
 // 发送登录 / 注册请求
-const postEntry = async (location, payload) => {
+const postAuth = async (location, payload) => {
     try {
         // 包装请求头
         const response = await fetch(location, {

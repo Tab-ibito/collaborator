@@ -4,6 +4,8 @@
 # include <stdio.h>
 # include <string>
 # include <iostream>
+#include <unordered_set>
+#include <mutex>
 
 // request body json数据
 struct AuthPayload {
@@ -66,6 +68,33 @@ void setup_auth_routes(crow::App<crow::CORSHandler>& app, DBManager& db_manager)
     });
 }
 
+// 设置WebSocket相关的路由
+void setup_websocket_routes(crow::App<crow::CORSHandler>& app) {
+    static std::unordered_set<crow::websocket::connection*> active_users;
+    static std::mutex users_mutex;
+
+    CROW_WEBSOCKET_ROUTE(app, "/ws/edit")
+        .onopen([&](crow::websocket::connection& conn) {
+            users_mutex.lock();
+            active_users.insert(&conn);
+            users_mutex.unlock();
+            std::cout << "WebSocket connection opened. "<< std::endl;
+        })
+        .onclose([&](crow::websocket::connection& conn, const std::string& reason) {
+            users_mutex.lock();
+            active_users.erase(&conn);
+            users_mutex.unlock();
+            std::cout << "WebSocket connection closed. " << std::endl;
+        })
+        .onmessage([&](crow::websocket::connection& conn, const std::string& message, bool is_binary) {
+            std::cout << "Received message: " << message << std::endl;
+            // Echo the message back to the client
+            for (auto* user : active_users) {
+                user->send_text(message);
+            }
+        });
+}
+
 int main(){
     // 初始化数据库管理器
     DBManager db_manager("../../database/users.db");
@@ -86,6 +115,7 @@ int main(){
         .max_age(3600);
     
     setup_auth_routes(app, db_manager);
+    setup_websocket_routes(app);
     app.port(1145).multithreaded().run();
 
     // 服务器关闭时会自动调用DBManager的析构函数，关闭数据库连接

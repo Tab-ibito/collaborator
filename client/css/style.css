@@ -67,3 +67,75 @@ body {
 	color: #fff;
 }
 
+.editor-page {
+	min-height: 100vh;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: 24px;
+}
+
+.grid-panel {
+	padding: 8px;
+}
+
+.edit-controls {
+	display: grid;
+	gap: 8px;
+	margin-bottom: 10px;
+}
+
+.edit-controls label {
+	display: grid;
+	gap: 6px;
+	font-size: 13px;
+	font-weight: 600;
+}
+
+.edit-controls input {
+	height: 38px;
+	border: 1px solid #bbb;
+	border-radius: 8px;
+	padding: 0 10px;
+	font-size: 14px;
+	background-color: #fff;
+	color: #111;
+}
+
+.edit-actions {
+	display: grid;
+	grid-template-columns: 1fr;
+	gap: 8px;
+	margin-bottom: 12px;
+}
+
+.edit-actions button {
+	height: 38px;
+	border: 1px solid #111;
+	border-radius: 8px;
+	background-color: #fff;
+	color: #111;
+	font-size: 14px;
+	font-weight: 700;
+	cursor: pointer;
+}
+
+.edit-actions button:hover {
+	background-color: #111;
+	color: #fff;
+}
+
+.grid-board {
+	display: grid;
+	grid-template-columns: repeat(4, 56px);
+	gap: 8px;
+}
+
+.grid-cell {
+	width: 56px;
+	height: 56px;
+	border: none;
+	background-color: #dbeafe;
+	box-shadow: none;
+}
+

@@ -2,9 +2,50 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Title</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Grid Editor</title>
+    <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-
+    <main class="editor-page">
+        <section class="grid-panel" aria-label="4 by 4 grid">
+            <div class="edit-controls" aria-label="grid input controls">
+                <label>
+                    X
+                    <input id="xInput" type="number" min="0" max="3" placeholder="x (0-3)">
+                </label>
+                <label>
+                    Y
+                    <input id="yInput" type="number" min="0" max="3" placeholder="y (0-3)">
+                </label>
+                <label>
+                    Color
+                    <input id="colorInput" type="text" placeholder="color">
+                </label>
+            </div>
+            <div class="edit-actions" aria-label="submit action">
+                <button id="submitBtn" type="button">Submit</button>
+            </div>
+            <div id="grid" class="grid-board" role="grid" aria-label="4 by 4 grid">
+                <div class="grid-cell" role="gridcell"></div>
+                <div class="grid-cell" role="gridcell"></div>
+                <div class="grid-cell" role="gridcell"></div>
+                <div class="grid-cell" role="gridcell"></div>
+                <div class="grid-cell" role="gridcell"></div>
+                <div class="grid-cell" role="gridcell"></div>
+                <div class="grid-cell" role="gridcell"></div>
+                <div class="grid-cell" role="gridcell"></div>
+                <div class="grid-cell" role="gridcell"></div>
+                <div class="grid-cell" role="gridcell"></div>
+                <div class="grid-cell" role="gridcell"></div>
+                <div class="grid-cell" role="gridcell"></div>
+                <div class="grid-cell" role="gridcell"></div>
+                <div class="grid-cell" role="gridcell"></div>
+                <div class="grid-cell" role="gridcell"></div>
+                <div class="grid-cell" role="gridcell"></div>
+            </div>
+        </section>
+    </main>
 </body>
+<script src="js/websocket.js"></script>
 </html>
