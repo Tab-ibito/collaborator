@@ -1,0 +1,46 @@
+# ==========================================
+# 1. 基础魔法设定
+# ==========================================
+cmake_minimum_required(VERSION 3.15)
+project(collaborator VERSION 1.0)
+
+# 设定 C++ 标准为 C++17 (Crow 框架和现代特性的基本要求喵)
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED True)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON) # 方便编辑器(如 VSCode)提供代码补全
+
+# ==========================================
+# 2. 严谨的编译器警告设置 (绝对不放过任何 Bug 喵！)
+# ==========================================
+if(MSVC)
+  add_compile_options(/W4 /WX) # Windows 下的最高级别警告
+else()
+  add_compile_options(-Wall -Wextra -pedantic) # GCC/Clang 下的严谨模式
+endif()
+
+# ==========================================
+# 3. 召唤外援：自动拉取 Crow 框架
+# ==========================================
+include(FetchContent)
+
+# 告诉 CMake 去哪里寻找 Crow 喵
+FetchContent_Declare(
+  Crow
+  GIT_REPOSITORY https://github.com/CrowCpp/Crow.git
+  GIT_TAG v1.2.0 # 使用稳定版本，避免被新提交的 Bug 偷袭
+)
+
+# 告诉 Crow 我们不需要庞大的 Boost 库，使用独立版的 Asio 即可
+set(CROW_FEATURES "ssl;compression" CACHE STRING "" FORCE)
+
+# 开始下载并使 Crow 可用
+FetchContent_MakeAvailable(Crow)
+
+# ==========================================
+# 4. 组装最终的可执行文件
+# ==========================================
+add_executable(server src/main.cpp src/db_manager.cpp)
+
+find_package(SQLite3 REQUIRED)
+
+target_link_libraries(server PRIVATE Crow::Crow SQLite::SQLite3)

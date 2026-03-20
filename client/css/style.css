@@ -1,0 +1,69 @@
+* {
+	box-sizing: border-box;
+}
+
+body {
+	margin: 0;
+	font-family: Arial, sans-serif;
+	background-color: #f2f2f2;
+	color: #111;
+}
+
+.page-center {
+	min-height: 100vh;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: 24px;
+}
+
+.login-dialog {
+	width: 100%;
+	max-width: 360px;
+	background-color: #fff;
+	border: 2px solid #000;
+	border-radius: 16px;
+	padding: 28px 24px;
+}
+
+.dialog-title {
+	margin: 0 0 20px;
+	text-align: center;
+	font-size: 28px;
+	font-weight: 700;
+	color: #000;
+}
+
+.dialog-content {
+	display: grid;
+	gap: 12px;
+}
+
+.dialog-content input,
+.dialog-actions button {
+	width: 100%;
+	height: 42px;
+	border-radius: 10px;
+	border: 1px solid #000;
+	padding: 0 12px;
+	font-size: 15px;
+	background-color: #fff;
+	color: #000;
+}
+
+.dialog-actions {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: 12px;
+}
+
+.dialog-actions button {
+	font-weight: 700;
+	cursor: pointer;
+}
+
+.dialog-actions button:hover {
+	background-color: #000;
+	color: #fff;
+}
+
