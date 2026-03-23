@@ -83,6 +83,21 @@ bool DBManager::verify_user(const std::string& username, const std::string& pass
     return verified;
 }
 
+// 查找用户是否存在
+bool DBManager::find_user(const std::string& username) {
+    const char* sql = "SELECT password FROM users WHERE username = ?;";
+    sqlite3_stmt* stmt;
+    if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) != SQLITE_OK) {
+        std::cerr << "Failed to prepare statement: " << sqlite3_errmsg(db) << std::endl;
+        return false;
+    }
+    sqlite3_bind_text(stmt, 1, username.c_str(), -1, SQLITE_TRANSIENT);
+    if (sqlite3_step(stmt) == SQLITE_ROW) {
+        return true;
+    }
+    return false;
+}
+
 // 用于测试，重置数据库表
 bool DBManager::reset_tables() {
     const char* sql = R"(DROP TABLE IF EXISTS users;

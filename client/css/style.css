@@ -128,7 +128,6 @@ body {
 .grid-board {
 	display: grid;
 	grid-template-columns: repeat(4, 56px);
-	gap: 8px;
 }
 
 .grid-cell {

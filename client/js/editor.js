@@ -56,7 +56,7 @@ const postAuth = async (location, payload) => {
 
         if (response.ok && result.success) {
             console.log("Successfully registered in!");
-            window.location.href = "./edit.html";
+            window.location.href = "./edit.html?username=" + result.username;
         } else {
             console.log("Failed to register in!");
             $warningMessage.textContent = result.message;

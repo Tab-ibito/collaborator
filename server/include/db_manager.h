@@ -13,6 +13,7 @@ public:
     // 操作数据库表
     bool add_user(const std::string& username, const std::string& password);
     bool verify_user(const std::string& username, const std::string& password);
+    bool find_user(const std::string& username);
 
     // 用于测试    
     bool reset_tables();
