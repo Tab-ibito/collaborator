@@ -8,44 +8,50 @@
 </head>
 <body>
     <main class="editor-page">
-        <section class="grid-panel" aria-label="4 by 4 grid">
-            <div class="edit-controls" aria-label="grid input controls">
-                <label>
-                    X
-                    <input id="xInput" type="number" min="0" max="3" placeholder="x (0-3)">
-                </label>
-                <label>
-                    Y
-                    <input id="yInput" type="number" min="0" max="3" placeholder="y (0-3)">
-                </label>
-                <label>
-                    Color
-                    <input id="colorInput" type="text" placeholder="color">
-                </label>
-            </div>
-            <div class="edit-actions" aria-label="submit action">
-                <button id="submitBtn" type="button">Submit</button>
-            </div>
-            <p id="warningMessage" style="color: red; font-size: 12px; margin: 0;"></p>
-            <div id="grid" class="grid-board" role="grid" aria-label="4 by 4 grid">
-                <div class="grid-cell" role="gridcell"></div>
-                <div class="grid-cell" role="gridcell"></div>
-                <div class="grid-cell" role="gridcell"></div>
-                <div class="grid-cell" role="gridcell"></div>
-                <div class="grid-cell" role="gridcell"></div>
-                <div class="grid-cell" role="gridcell"></div>
-                <div class="grid-cell" role="gridcell"></div>
-                <div class="grid-cell" role="gridcell"></div>
-                <div class="grid-cell" role="gridcell"></div>
-                <div class="grid-cell" role="gridcell"></div>
-                <div class="grid-cell" role="gridcell"></div>
-                <div class="grid-cell" role="gridcell"></div>
-                <div class="grid-cell" role="gridcell"></div>
-                <div class="grid-cell" role="gridcell"></div>
-                <div class="grid-cell" role="gridcell"></div>
-                <div class="grid-cell" role="gridcell"></div>
-            </div>
+        <section class="editor-left" aria-label="grid editor panel">
+            <section class="grid-panel" aria-label="4 by 4 grid">
+                <div class="edit-controls" aria-label="grid input controls">
+                    <label>
+                        X
+                        <input id="xInput" type="number" min="0" max="3" placeholder="x (0-3)">
+                    </label>
+                    <label>
+                        Y
+                        <input id="yInput" type="number" min="0" max="3" placeholder="y (0-3)">
+                    </label>
+                    <label>
+                        Color
+                        <input id="colorInput" type="text" placeholder="color">
+                    </label>
+                </div>
+                <div class="edit-actions" aria-label="submit action">
+                    <button id="submitBtn" type="button">Submit</button>
+                </div>
+                <p id="warningMessage" style="color: red; font-size: 12px; margin: 0;"></p>
+                <div id="grid" class="grid-board" role="grid" aria-label="4 by 4 grid">
+                    <!--filled by javascript here-->
+                </div>
+            </section>
         </section>
+
+        <section class="editor-middle" aria-label="quick actions">
+            <div class="middle-actions">
+                <button id="fileListBtn" type="button">文件列表</button>
+                <button id="onlineUsersBtn" type="button">在线用户列表</button>
+                <div id="createFile">
+                    <input placeholder="filename..." id="fileNameInput">
+                    <button id="createFileBtn" type="button">create</button>
+                </div>
+                <button id="undoBtn" type="button">撤销</button>
+            </div>
+            <div id="infoList" class="info-list"></div>
+        </section>
+
+        <aside class="editor-right" aria-label="operation log">
+            <h2 class="log-title">操作记录</h2>
+            <div id="opHistory" class="log-list" role="log" aria-label="operation history" aria-live="polite">
+            </div>
+        </aside>
     </main>
 </body>
 <script src="js/websocket.js"></script>

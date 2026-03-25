@@ -67,7 +67,7 @@
 * 撤销
 * 多文件切换
 
-## Feat: More Robust Authentication & Saving / Loading in Server
+## Feat: More Robust Authentication & Saving / Loading in Server 2026.3.23
 
 * 验证?username=1的有效性，自动踢掉invalid user
 * 服务器加载时从磁盘文件加载画布，关掉之后自动保存进度到磁盘，服务器内部维护一张画布缓存
@@ -75,11 +75,45 @@
 
 注意到原生的一些特性：
 * `switch` 里面分支直接定义变量会编译爆错
-* `app.run` 之后进程被 `fork` & `execve` 托管
+* `app.run` 之后进程被 Event Loop 阻塞
+
 
 接下来还需要完成的主要功能：
 * 时间戳与自动保存
 * 操作撤销与回退
 * 用户数据进一步统计
 * 多文件读取操作
-* 
+
+## Feat: New Features 2026.3.25
+
+实现了新的功能：
+
+* `create_file` 创建新文件
+* `switch_file` 切换当前工作文件
+* `undo` 使用deque实现撤销操作（最大量为10）
+* `get_file_list` 查看文件列表
+* `get_user_list` 查看在线用户
+* `opHistory` 栏目查看操作历史
+* 完善了相关接口的定义环境
+
+## Debug: Stress Test & Draw Test 2026.3.25
+
+通过 `test/stress_test.py` 测试50个用户的注册登录和随意修改像素行为，结果成功
+
+通过 `test/draw_test.py` 测试60个用户写作完成2张 `heart` 和 `oak_plunk` 图片，结果出现**内容错乱**的问题
+
+## Problem 2 detected 2026.3.25
+
+> 通过 `test/draw_test.py` 测试60个用户写作完成2张 `heart` 和 `oak_plunk` 图片，结果出现**内容错乱**的问题
+
+原因分析：虽然通过了 `switch_file` 方法切换文件，但是由于异步性我们**没办法确定**各个更改像素的行为是发生在 `switch_file` 的之前还是之后，从而导致时间的错乱。
+
+解决方法1：
+* `switch_file` 的json发包中加上 `filename` 属性，以确认**修改的文件对象是否正确**
+* 服务器端如果收到了无法对应的 `filename`，将对应操作记录缓存，等到切换到对应文件之后还原
+* 服务器关闭之后自动执行还原程序，清空操作记录
+
+此方案问题：存储对空间的消耗可能很大，且依然可能造成数据丢失，或者需要依赖**服务器关闭后自动还原**的情况，逻辑复杂
+
+解决方法2：
+计划**维护分配不同的房间**。
