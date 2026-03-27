@@ -90,10 +90,6 @@ body {
 	flex-direction: column;
 	align-items: stretch;
 	justify-content: center;
-	position: sticky;
-	top: 50%;
-	align-self: flex-start;
-	transform: translateY(-50%);
 }
 
 .middle-actions {

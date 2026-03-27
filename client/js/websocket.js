@@ -169,7 +169,7 @@ ws.onmessage = (event) => {
             $opHistory.innerHTML = "<p class=\"log-item\">"+`${update.time} User ${update.username} joined the document`+"</p>" + $opHistory.innerHTML;
             break;
         case "pixel_update":
-            $opHistory.innerHTML = "<p class=\"log-item\">"+`${update.time} User ${update.username} changed index：${update.index} in color ${update.color}`+"</p>" + $opHistory.innerHTML;
+            $opHistory.innerHTML = "<p class=\"log-item\">"+`${update.time} User ${update.username} changed index：${update.index} in color ${update.color} for file ${update.filename}`+"</p>" + $opHistory.innerHTML;
             $cells[update.index].style.backgroundColor = update.color;
             break;
         case "user_left":
@@ -202,7 +202,7 @@ ws.onmessage = (event) => {
             $opHistory.innerHTML = "<p class=\"log-item\">"+`${update.time} User ${update.username} switched current file to ${update.filename}`+"</p>" + $opHistory.innerHTML;
             break;
         case "user_undone":
-            $opHistory.innerHTML = "<p class=\"log-item\">"+`${update.time} User ${update.username} undone：${update.index} in color ${update.color}`+"</p>" + $opHistory.innerHTML;
+            $opHistory.innerHTML = "<p class=\"log-item\">"+`${update.time} User ${update.username} undone：${update.index} in color ${update.color} for file ${update.filename}`+"</p>" + $opHistory.innerHTML;
             $cells[update.index].style.backgroundColor = update.color;
             break;
         case "exception":

@@ -102,7 +102,7 @@
 
 通过 `test/draw_test.py` 测试60个用户写作完成2张 `heart` 和 `oak_plunk` 图片，结果出现**内容错乱**的问题
 
-## Problem 2 detected 2026.3.25
+## Problem 2 detected 2026.3.25 solved 2026.3.26
 
 > 通过 `test/draw_test.py` 测试60个用户写作完成2张 `heart` 和 `oak_plunk` 图片，结果出现**内容错乱**的问题
 
@@ -116,4 +116,37 @@
 此方案问题：存储对空间的消耗可能很大，且依然可能造成数据丢失，或者需要依赖**服务器关闭后自动还原**的情况，逻辑复杂
 
 解决方法2：
-计划**维护分配不同的房间**。
+计划**维护分配不同的房间**，通过 `lobby_mtx` 和每个房间单独的 `room_mtx` 维护。  
+注意到 `mutex` 不能被复制，整个结构体需要通过**指针访问**。
+
+```C++
+// 房间管理
+struct CanvasRoom {
+  std::vector<std::string> canvas;
+  std::unordered_set<crow::websocket::connection *> connections;
+  std::mutex room_mtx;
+  std::deque<EditRecord> edit_history;
+
+  CanvasRoom() : canvas(CANVAS_SIZE, "#FFFFFF") {} // 初始化画布为白色
+};
+
+static std::mutex lobby_mtx;
+static std::unordered_map<std::string, std::unique_ptr<CanvasRoom>>
+    active_rooms;
+```
+
+我们可以做到
+* 允许不同用户同时编辑不同文件
+* 部分广播以room为单位进行
+
+目前缺陷：
+* 还没有完善空房间的**内存释放**处理，存在**内存泄漏**问题隐患
+* 部分操作依旧依赖 `O(n)` 遍历进行，完全可以通过哈希表优化，例如 `<key, val> = <&conn, filename>`
+  * 因为我们拿到手的是 `&conn`，完全不应该去依赖低效遍历找filename
+  * 且**遍历过程本身与文件操作指令无关**，却极容易引发**锁的权限问题**
+
+因此我们接下来围绕**读写权限和性能优化**展开。
+
+## Update: A Better Search 2026.3.27
+
+改进了遍历逻辑，引入了哈希表建立从 `&conn` 到 `filename` 的映射。
