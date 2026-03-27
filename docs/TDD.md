@@ -150,3 +150,41 @@ static std::unordered_map<std::string, std::unique_ptr<CanvasRoom>>
 ## Update: A Better Search 2026.3.27
 
 改进了遍历逻辑，引入了哈希表建立从 `&conn` 到 `filename` 的映射。
+
+## Problem 3 detected 2026.3.25 solved 2026.3.26
+
+之前弃用的逻辑是在所有事情结束之后清理，发现有未能解决的神秘问题，遂改逻辑：**用户退出时候自动检测删除**。
+
+在引入自动回收删除的时候，又遇到了一些**神秘问题**。
+
+### 首先在引入 `switch_file` 的时候发现了会报**段错误**或者是**死锁**。
+
+* 解决1：将 `lobby_mtx` 在整个 `switch_file` 过程中全覆盖。
+
+  * 在此之前尝试过加一个**保护删除操作的大锁**，发现作用有限遂弃用。
+
+* 解决2：优化 `switch_file` 的部分操作逻辑，包括但不限于一些数据删除使用暂存的**逻辑顺序优化**。
+
+  * 这里又引入了另一个更加神秘的错误：`switch_file` 目标对象是原文件时会莫名其妙爆炸:
+```
+(2026-03-27 13:17:29) [ERROR   ] Worker Crash: An uncaught exception occurred: vector::_M_default_append
+```
+
+### 但我们尝试把同样的代码赋值给 .onclose() 的时候，又出现了神秘错误。
+
+我们先后做了以下改进方法，但这里的神秘错误很可能是多因素引发的：
+* `ctime` 并非线程安全，改用线程安全的time库，由于懒我们采用了 `time_mtx` 手动加锁。
+* 跑的 `draw_test.py` 测试自己有一点神秘的异步性问题。
+* `switch_file` 的检测特判是不是自身，避免神秘逻辑问题。
+* `old_room_ptr != active_rooms["canvas_state"].get()` 由于 `unordered_map` 自身线程不安全，哈希表内部结构不稳定性导致的并发问题，我们应该写的是 `old_filename != "canvas_state"` 更保险
+
+经过一系列调整和debug，修复了相关bug，并添加了退出时**保存特定文件到磁盘**的机制。
+
+同时也预留有**缓存结构**实现的可能性。
+
+**线程和并发模块**的问题基本解决，接下来我们的任务是：
+* 服务端的文件管理，二进制文件的编码和.png格式的导出支持
+* 网络端如何udp广播，或者跨局域网进行nginx认证
+* .txt文档的维护，参考借鉴CodiMD的做法
+
+目前总代码量1.4k行。
