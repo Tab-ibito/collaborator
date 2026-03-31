@@ -125,7 +125,7 @@ struct CanvasRoom {
   std::vector<std::string> canvas;
   std::unordered_set<crow::websocket::connection *> connections;
   std::mutex room_mtx;
-  std::deque<EditRecord> edit_history;
+  std::deque<PixelChange> edit_history;
 
   CanvasRoom() : canvas(CANVAS_SIZE, "#FFFFFF") {} // 初始化画布为白色
 };
@@ -187,4 +187,28 @@ static std::unordered_map<std::string, std::unique_ptr<CanvasRoom>>
 * 网络端如何udp广播，或者跨局域网进行nginx认证
 * .txt文档的维护，参考借鉴CodiMD的做法
 
-目前总代码量1.4k行。
+**目前总代码量1.4k行。**
+
+## Feat: Combining Snapshots And Event Tracing 2026.3.30
+
+更新了后端的文件管理方式，现在更新后支持 snapshot + 追加时间戳的形式进行文件的读取和修改。
+
+```
+/database
+    /canvas
+        canvas_state # 默认
+        file1
+        file2
+        ...
+    /logs
+        canvas_state.log # 默认
+        file1.log
+        file2.log
+        ...
+```
+
+优势在于通过追加的方式实现向**页表内存**的实时追加转写，追加方式方法效率高；
+
+而经过每若干项操作后**自动存储一次快照到磁盘上**。
+
+以时间戳为基础我们可以尝试*尝试重写撤销重做逻辑*，抑或以实际时间为标准**建立自动保存快照副本**。

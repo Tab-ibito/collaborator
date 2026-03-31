@@ -257,6 +257,33 @@ body {
 	grid-template-columns: repeat(4, 56px);
 }
 
+.brush-mode {
+	margin-top: 12px;
+	display: grid;
+	gap: 6px;
+	max-width: 224px;
+}
+
+.brush-mode label {
+	font-size: 13px;
+	font-weight: 600;
+}
+
+.brush-mode select {
+	height: 38px;
+	border: 1px solid #bbb;
+	border-radius: 8px;
+	padding: 0 10px;
+	font-size: 14px;
+	background-color: #fff;
+	color: #111;
+}
+
+.brush-mode select:focus {
+	border-color: #111;
+	outline: none;
+}
+
 .grid-cell {
 	width: 56px;
 	height: 56px;

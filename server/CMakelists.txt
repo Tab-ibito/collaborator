@@ -39,7 +39,7 @@ FetchContent_MakeAvailable(Crow)
 # ==========================================
 # 4. 组装最终的可执行文件
 # ==========================================
-add_executable(server src/main.cpp src/db_manager.cpp)
+add_executable(server src/main.cpp src/db_manager.cpp src/event_logger.cpp)
 
 find_package(SQLite3 REQUIRED)
 

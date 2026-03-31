@@ -58,17 +58,18 @@ Body:
 
 ## Websocket 服务器端发送的type
 
-| type                 | 声明     | 其他数据项                             |
-|----------------------|--------|-----------------------------------|
-| `error`              | 错误信息   | `message`                         |
-| `user_joined`        | 用户加入   | `username` `time`                 |
-| `user_left`          | 用户离开   | `username` `time`                 |
-| `pixel_update`       | 更新像素   | `username` `color` `index` `time` |
-| `canvas`             | 画布     | `canvas`                          |
-| `file_list`          | 文件列表   | `files` `current_working`         |
-| `user_list`          | 用户列表   | `users`                           |
-| `user_switched_file` | 用户切换文件 | `username` `filename` `time`      |
-| `user_undone`        | 用户撤销操作 | `username` `time` `index` `color` |
+| type                 | 声明     | 其他数据项                                    |
+|----------------------|--------|------------------------------------------|
+| `error`              | 错误信息   | `message`                                |
+| `user_joined`        | 用户加入   | `username` `time`                        |
+| `user_left`          | 用户离开   | `username` `time`                        |
+| `pixel_update`       | 更新像素   | `username` `color` `index` `time`        |
+| `area_update`        | 更新区域   | `username` `color` `index` `time` `size` |
+| `canvas`             | 画布     | `canvas`                                 |
+| `file_list`          | 文件列表   | `files` `current_working`                |
+| `user_list`          | 用户列表   | `users`                                  |
+| `user_switched_file` | 用户切换文件 | `username` `filename` `time`             |
+| `user_undone`        | 用户撤销操作 | `username` `time` `index` `color`        |
 
 ### 错误信息分类
 
@@ -84,3 +85,19 @@ Body:
 | `invalid_pixel_update_data` | 无效的像素更新数据 |
 | `filename_required`         | 缺少文件名     |
 | `unknown_message_type`      | 未知消息类型    |
+
+## 文件系统设计
+
+```
+/database
+    /canvas
+        canvas_state # 默认
+        file1
+        file2
+        ...
+    /logs
+        canvas_state.log # 默认
+        file1.log
+        file2.log
+        ...
+```

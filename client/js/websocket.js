@@ -63,6 +63,46 @@ const exceptionHandler = (message) => {
     }
 }
 
+// 导出png
+class MiniPillow {
+    constructor(width, height) {
+        // 在内存里偷偷创建一个不可见的透明画板喵
+        this.canvas = document.createElement('canvas');
+        this.canvas.width = width;
+        this.canvas.height = height;
+        this.ctx = this.canvas.getContext('2d');
+    }
+
+    // 完美复刻 Python 的 putpixel 习惯喵！
+    putpixel(x, y, color) {
+        this.ctx.fillStyle = color; // 支持 '#FF0000' 或 'rgba(255,0,0,1)' 格式
+        this.ctx.fillRect(x, y, canvas_width/this.canvas.width, canvas_width/this.canvas.height); // 画一个 1x1 大小的方块
+    }
+
+    // 完美复刻 Python 的 save 习惯喵！
+    save(filename = 'my-art.bmp') {
+        this.canvas.toBlob((blob) => {
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            a.click();
+            URL.revokeObjectURL(url); // 乖乖打扫战场喵
+        }, 'image/bmp');
+    }
+}
+
+function exportMyDivArt() {
+    const img = new MiniPillow(16, 16); // 新建画布
+    Array.from($cells).forEach((cell) => {
+        const index = Array.from($cells).indexOf(cell);
+        const [x, y] = getGridPosition(index);
+        const color = window.getComputedStyle(cell).backgroundColor;
+        img.putpixel(x, y, color);
+    });
+    img.save('my-idol-pixel.bmp');
+}
+
 /* event listeners */
 // 给每一个文件栏绑定一个onclick监听
 const addFileEntryListener = () => {
@@ -126,6 +166,8 @@ $onlineUsersBtn.addEventListener('click', async (event) => {
     event.preventDefault();
     const payload = {type: "get_user_list"};
     ws.send(JSON.stringify(payload));
+
+    exportMyDivArt();
 })
 
 /* websocket connection for edit */
