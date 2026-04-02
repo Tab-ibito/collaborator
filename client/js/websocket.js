@@ -19,6 +19,7 @@ const $fileNameInput = document.getElementById('fileNameInput');
 const $createFile = document.getElementById('createFile');
 const $createFileBtn = document.getElementById('createFileBtn');
 const $undoBtn = document.getElementById('undoBtn');
+const $brushSize = document.getElementById('brushModeSelect');
 
 const queryString = window.location.search;
 const urlParams = new URLSearchParams(queryString);
@@ -38,6 +39,36 @@ const getGridIndex = () => {
 
 const getGridPosition = (index) => {
     return [index % cols, Math.floor(index / rows)];
+}
+
+const getIndexIndices = (index, size) => {
+    const parsedIndex = parseInt(index, 10);
+    const parsedSize = parseInt(size, 10);
+
+    if (Number.isNaN(parsedIndex) || parsedIndex < 0 || parsedIndex >= rows * cols) {
+        return [];
+    }
+
+    const blockSize = Number.isNaN(parsedSize) || parsedSize < 1 ? 1 : parsedSize;
+    const centerX = parsedIndex % cols;
+    const centerY = Math.floor(parsedIndex / cols);
+
+    // Keep index as center cell for odd sizes; for even sizes, extend one extra cell to the right/bottom.
+    const left = centerX - Math.floor((blockSize - 1) / 2);
+    const right = centerX + Math.floor(blockSize / 2);
+    const top = centerY - Math.floor((blockSize - 1) / 2);
+    const bottom = centerY + Math.floor(blockSize / 2);
+
+    const indices = [];
+    for (let y = top; y <= bottom; y++) {
+        for (let x = left; x <= right; x++) {
+            if (x >= 0 && x < cols && y >= 0 && y < rows) {
+                indices.push(y * cols + x);
+            }
+        }
+    }
+
+    return indices;
 }
 
 const exceptionHandler = (message) => {
@@ -124,7 +155,7 @@ Array.from($cells).forEach((item) => {
     item.addEventListener("click", async(event) => {
         event.preventDefault();
         const index = Array.from($cells).indexOf(item);
-        await updateSubmission(index);
+        await updateSubmission(index, parseInt($brushSize.value));
     })
 })
 
@@ -132,7 +163,7 @@ Array.from($cells).forEach((item) => {
 $submitBtn.addEventListener('click', async (event) => {
     event.preventDefault();
     const index = getGridIndex();
-    await updateSubmission(index);
+    await updateSubmission(index, parseInt($brushSize.value));
 });
 
 // 获取目录内文件名单
@@ -166,7 +197,6 @@ $onlineUsersBtn.addEventListener('click', async (event) => {
     event.preventDefault();
     const payload = {type: "get_user_list"};
     ws.send(JSON.stringify(payload));
-
     exportMyDivArt();
 })
 
@@ -184,21 +214,34 @@ ws.onopen = () => {
 };
 
 // 提交更改像素的请求，并顺带更改本地
-const updateSubmission = async (index) => {
+const updateSubmission = async (index, size) => {
     const color = $colorInput.value;
-    const payload = {
-        type: 'pixel_update',
-        index: index,
-        color: color,
+    let payload = {};
+    if (size === 1){
+        payload = {
+            type: 'pixel_update',
+            index: index,
+            color: color,
+        }
+    } else {
+        payload = {
+            type: 'square_update',
+            index: index,
+            color: color,
+            size: size
+        }
     }
+
     if (!CSS.supports("color", color)) {
         $warningMessage.textContent = "Invalid color";
         return;
     }
-    $cells[index].style.backgroundColor = color;
+    getIndexIndices(index, size).forEach((i) => {
+        $cells[i].style.backgroundColor = color;
+    });
     if (ws && ws.readyState === WebSocket.OPEN) {
         ws.send(JSON.stringify(payload));
-        console.log(`send to server：index ${index} in color ${color} ！`);
+        console.log(`send to server：index ${index} in color ${color} in size ${size}! `);
     } else {
         console.warn("WebSocket disconnected");
     }
@@ -206,6 +249,7 @@ const updateSubmission = async (index) => {
 // 收到广播消息更改像素
 ws.onmessage = (event) => {
     const update = JSON.parse(event.data);
+    let i = 0;
     switch (update.type) {
         case "user_joined":
             $opHistory.innerHTML = "<p class=\"log-item\">"+`${update.time} User ${update.username} joined the document`+"</p>" + $opHistory.innerHTML;
@@ -214,12 +258,16 @@ ws.onmessage = (event) => {
             $opHistory.innerHTML = "<p class=\"log-item\">"+`${update.time} User ${update.username} changed index：${update.index} in color ${update.color} for file ${update.filename}`+"</p>" + $opHistory.innerHTML;
             $cells[update.index].style.backgroundColor = update.color;
             break;
+        case "square_update":
+            getIndexIndices(update.index, update.size).forEach((i) => {
+                $cells[i].style.backgroundColor = update.color;
+            });
+            break;
         case "user_left":
             $opHistory.innerHTML = "<p class=\"log-item\">"+`${update.time} User ${update.username} left the document`+"</p>" + $opHistory.innerHTML;
             break;
         case "canvas":
             $opHistory.innerHTML = "<p class=\"log-item\">"+`Get canvas from server`+"</p>" + $opHistory.innerHTML;
-            let i = 0;
             update.canvas.forEach((item) => {
                 console.log(item);
                 $cells[i].style.backgroundColor = item;
@@ -245,7 +293,10 @@ ws.onmessage = (event) => {
             break;
         case "user_undone":
             $opHistory.innerHTML = "<p class=\"log-item\">"+`${update.time} User ${update.username} undone：${update.index} in color ${update.color} for file ${update.filename}`+"</p>" + $opHistory.innerHTML;
-            $cells[update.index].style.backgroundColor = update.color;
+            update.index.forEach((item) => {
+                $cells[item].style.backgroundColor = update.color[i];
+                i++;
+            })
             break;
         case "exception":
             exceptionHandler(update.message);

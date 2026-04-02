@@ -20,11 +20,16 @@ struct PixelChange {
     std::string color;
 };
 
+struct Action {
+    std::string type;
+    std::vector<PixelChange> changes;
+};
+
 struct CanvasRoom {
   std::vector<std::string> canvas;
   std::unordered_set<crow::websocket::connection *> connections;
   std::mutex room_mtx;
-  std::deque<std::vector<PixelChange>> edit_history;
+  std::deque<Action> edit_history;
   int log_line_count = 0;
 
   CanvasRoom() : canvas(CANVAS_SIZE, "#FFFFFF") {} 

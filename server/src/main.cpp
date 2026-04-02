@@ -1,7 +1,8 @@
+#include "../include/canvas_room.h"
 #include "../include/db_manager.h"
 #include "../include/event_logger.h"
-#include "../include/canvas_room.h"
 #include "../include/file_paths.h"
+#include "../include/painter.h"
 #include "crow.h"
 #include "crow/middlewares/cors.h"
 #include <csignal>
@@ -17,6 +18,7 @@
 #include <unordered_set>
 #include <vector>
 
+
 constexpr uint16_t SERVER_PORT = 1145;
 
 // request body json数据
@@ -29,10 +31,10 @@ struct AuthPayload {
 struct PixelChange;
 struct CanvasRoom;
 
-static std::mutex lobby_mtx; //给本地磁盘文件上锁
-static std::mutex users_mutex; //给active_users上锁，保护在线用户列表的读写
-static std::mutex file_mtx; //给文件操作上锁，保护文件读写的互斥
-static std::mutex time_mtx; //给时间相关操作上锁，保护时间数据的互斥
+static std::mutex lobby_mtx; // 给本地磁盘文件上锁
+static std::mutex users_mutex; // 给active_users上锁，保护在线用户列表的读写
+static std::mutex file_mtx; // 给文件操作上锁，保护文件读写的互斥
+static std::mutex time_mtx; // 给时间相关操作上锁，保护时间数据的互斥
 
 static std::unordered_map<std::string, std::unique_ptr<CanvasRoom>>
     active_rooms; // 房间列表，key为文件名
@@ -66,9 +68,11 @@ void load_canvas_from_file(const std::string &filename, CanvasRoom *room_ptr) {
     room_ptr->canvas[index++] = line;
   }
   room_ptr->room_mtx.unlock();
-  room_ptr->log_line_count = EventLogger::replay_canvas_state(filename, room_ptr);
+  room_ptr->log_line_count =
+      EventLogger::replay_canvas_state(filename, room_ptr);
   std::cout << "Canvas state loaded successfully." << std::endl;
-  std::cout << "Replayed " << room_ptr->log_line_count << " log lines to restore canvas state." << std::endl;
+  std::cout << "Replayed " << room_ptr->log_line_count
+            << " log lines to restore canvas state." << std::endl;
   file.close();
 }
 
@@ -198,7 +202,8 @@ void setup_websocket_routes(crow::App<crow::CORSHandler> &app,
             if (old_room_ptr) {
               old_room_ptr->room_mtx.lock();
               old_room_ptr->connections.erase(&conn);
-              if (old_room_ptr->connections.empty() && old_filename != "canvas_state") {
+              if (old_room_ptr->connections.empty() &&
+                  old_filename != "canvas_state") {
                 // 如果房间空了且不是默认的canvas_state房间，就删除这个房间
                 old_room_ptr->room_mtx.unlock();
                 active_rooms.erase(old_filename);
@@ -262,7 +267,8 @@ void setup_websocket_routes(crow::App<crow::CORSHandler> &app,
 
           // 发送当前画布状态给新加入的用户
           lobby_mtx.lock();
-          user_current_files.insert({&conn, "canvas_state"}); // 默认加入canvas_state房间
+          user_current_files.insert(
+              {&conn, "canvas_state"}); // 默认加入canvas_state房间
           CanvasRoom *room_ptr =
               active_rooms.find("canvas_state")->second.get();
           lobby_mtx.unlock();
@@ -294,12 +300,7 @@ void setup_websocket_routes(crow::App<crow::CORSHandler> &app,
           if (0 <= index && index < CANVAS_SIZE) {
             // 给房间上锁，更新画布状态和编辑历史
             room_ptr->room_mtx.lock();
-            room_ptr->edit_history.push_back(
-                {index, room_ptr->canvas[index]}); // 记录编辑历史
-            if (room_ptr->edit_history.size() > MAX_EDIT_HISTORY) {
-              room_ptr->edit_history.pop_front();
-            }
-            room_ptr->canvas[index] = color;
+            Painter::pixel_paint(room_ptr, index, color);
             room_ptr->room_mtx.unlock();
           } else {
             conn.send_text("{\"type\": \"exception\", \"message\": "
@@ -310,7 +311,7 @@ void setup_websocket_routes(crow::App<crow::CORSHandler> &app,
 
           std::string username;
           std::string filename;
-          
+
           broadcast_data["type"] = "pixel_update";
           users_mutex.lock();
           username = active_users[&conn];
@@ -324,22 +325,90 @@ void setup_websocket_routes(crow::App<crow::CORSHandler> &app,
           broadcast_data["filename"] = filename;
           users_mutex.lock();
           std::cout << "Received pixel update from " << active_users.at(&conn)
-                    << ": " << message << " for file "
-                    << filename << std::endl;
+                    << ": " << message << " for file " << filename << std::endl;
           users_mutex.unlock();
           lobby_mtx.unlock();
           room_ptr->room_mtx.lock();
           broadcast_message(broadcast_data.dump(), room_ptr->connections);
-          if (room_ptr->add_log_line()){
+          if (room_ptr->add_log_line()) {
             room_ptr->add_log_line();
             room_ptr->room_mtx.unlock();
             EventLogger::transfer_log_to_canvas(filename, room_ptr);
           } else {
             room_ptr->room_mtx.unlock();
           }
-          EventLogger::PixelPaintedEvent event = EventLogger::create_pixel_painted_event(dt, username, index, color, "pixel_update");
+          EventLogger::PaintedEvent event =
+              EventLogger::create_pixel_painted_event(dt, username, index,
+                                                      color);
           EventLogger::append_event_to_log(filename, event);
-          
+
+        } else if (type == "square_update") {
+          // 处理方形涂色的请求
+          if (!x.has("index") || !x.has("size") || !x.has("color") ||
+              x["index"].t() != crow::json::type::Number ||
+              x["size"].t() != crow::json::type::Number ||
+              x["color"].t() != crow::json::type::String) {
+            conn.send_text("{\"type\": \"exception\", \"message\": "
+                           "\"invalid_square_update_data\"}");
+            std::cerr << "Invalid square update data." << std::endl;
+            return;
+          }
+          index = x["index"].i();
+          int size = x["size"].i();
+          color = x["color"].s();
+          // 给大厅上锁，获取room指针
+          lobby_mtx.lock();
+          CanvasRoom *room_ptr = active_rooms[user_current_files[&conn]].get();
+          lobby_mtx.unlock();
+          if (0 <= index && index < CANVAS_SIZE && size > 0 && size <= ROW) {
+            // 给房间上锁，更新画布状态和编辑历史
+            room_ptr->room_mtx.lock();
+            Painter::square_paint(room_ptr, index, size, color);
+            room_ptr->room_mtx.unlock();
+          } else {
+            conn.send_text("{\"type\": \"exception\", \"message\": "
+                           "\"fail_to_update_square\"}");
+            std::cerr << "Invalid square update data: index=" << index
+                      << ", size=" << size << std::endl;
+            return;
+          }
+
+          // 包装广播数据
+          std::string username;
+          std::string filename;
+
+          broadcast_data["type"] = "square_update";
+          users_mutex.lock();
+          username = active_users[&conn];
+          broadcast_data["username"] = username;
+          users_mutex.unlock();
+          broadcast_data["index"] = index;
+          broadcast_data["color"] = color;
+          broadcast_data["time"] = dt;
+          broadcast_data["size"] = size;
+          lobby_mtx.lock();
+          filename = user_current_files[&conn];
+          broadcast_data["filename"] = filename;
+          users_mutex.lock();
+          std::cout << "Received square update from " << username << ": "
+                    << message << "in size " << size << " for file " << filename
+                    << std::endl;
+          users_mutex.unlock();
+          lobby_mtx.unlock();
+          room_ptr->room_mtx.lock();
+          broadcast_message(broadcast_data.dump(), room_ptr->connections);
+          if (room_ptr->add_log_line()) {
+            room_ptr->add_log_line();
+            room_ptr->room_mtx.unlock();
+            EventLogger::transfer_log_to_canvas(filename, room_ptr);
+          } else {
+            room_ptr->room_mtx.unlock();
+          }
+          EventLogger::PaintedEvent event =
+              EventLogger::create_square_painted_event(dt, username, index,
+                                                       size, color);
+          EventLogger::append_event_to_log(filename, event);
+
         } else if (type == "get_user_list") {
           // 处理获取用户列表的请求
           broadcast_data["type"] = "user_list";
@@ -357,7 +426,7 @@ void setup_websocket_routes(crow::App<crow::CORSHandler> &app,
               file_list.push_back(entry.path().filename().string());
             }
           }
-          // broadcast_data["current_working"] = current_file; //
+
           // 当前正在编辑的文件
           file_mtx.unlock();
           broadcast_data["type"] = "file_list";
@@ -431,9 +500,10 @@ void setup_websocket_routes(crow::App<crow::CORSHandler> &app,
               return;
             }
 
-            CanvasRoom *new_room_ptr = active_rooms.find(filename) != active_rooms.end()
-                                           ? active_rooms[filename].get()
-                                           : nullptr;
+            CanvasRoom *new_room_ptr =
+                active_rooms.find(filename) != active_rooms.end()
+                    ? active_rooms[filename].get()
+                    : nullptr;
             if (!new_room_ptr) {
               active_rooms.insert({filename, std::make_unique<CanvasRoom>()});
               new_room_ptr = active_rooms.find(filename)->second.get();
@@ -443,13 +513,15 @@ void setup_websocket_routes(crow::App<crow::CORSHandler> &app,
             }
 
             // 将用户从原房间中移除，更新user_current_files
-            CanvasRoom *old_room_ptr = active_rooms[user_current_files[&conn]].get();
+            CanvasRoom *old_room_ptr =
+                active_rooms[user_current_files[&conn]].get();
             user_current_files[&conn] = filename; // 更新用户当前编辑的文件
 
             if (old_room_ptr) {
               old_room_ptr->room_mtx.lock();
               old_room_ptr->connections.erase(&conn);
-              if (old_room_ptr->connections.empty() && old_room_ptr != active_rooms["canvas_state"].get()) {
+              if (old_room_ptr->connections.empty() &&
+                  old_room_ptr != active_rooms["canvas_state"].get()) {
                 // 如果房间空了且不是默认的canvas_state房间，就删除这个房间
                 old_room_ptr->room_mtx.unlock();
                 active_rooms.erase(old_filename);
@@ -497,14 +569,10 @@ void setup_websocket_routes(crow::App<crow::CORSHandler> &app,
           CanvasRoom *room_ptr = active_rooms[filename].get();
           lobby_mtx.unlock();
           room_ptr->room_mtx.lock();
-          if (!room_ptr->edit_history.empty()) {
-            PixelChange last_edit = room_ptr->edit_history.back();
-            room_ptr->edit_history.pop_back();
-
-            // 恢复上一个状态
-            room_ptr->canvas[last_edit.index] = last_edit.color;
+          // 恢复上一个状态
+          if (Painter::undo_paint(room_ptr, broadcast_data)) {
             room_ptr->room_mtx.unlock();
-
+            std::cout<< broadcast_data.dump() << std::endl;
             // 广播撤销操作
             std::string username;
 
@@ -513,31 +581,28 @@ void setup_websocket_routes(crow::App<crow::CORSHandler> &app,
             username = active_users[&conn];
             broadcast_data["username"] = username;
             users_mutex.unlock();
-            broadcast_data["index"] = last_edit.index;
-            broadcast_data["color"] = last_edit.color;
             broadcast_data["time"] = dt;
-            users_mutex.lock();
             broadcast_data["filename"] = filename;
-            std::cout << "Undoing last edit by " << active_users.at(&conn)
-                      << ": " << message << " for file "
-                      << filename << std::endl;
-            users_mutex.unlock();
+            std::cout << "Undoing last edit by " << username
+                      << ": " << message << " for file " << filename
+                      << std::endl;
             room_ptr->room_mtx.lock();
             broadcast_message(broadcast_data.dump(), room_ptr->connections);
-            if (room_ptr->add_log_line()){
-            room_ptr->add_log_line();
-            room_ptr->room_mtx.unlock();
-            EventLogger::transfer_log_to_canvas(filename, room_ptr);
+            if (room_ptr->add_log_line()) {
+              room_ptr->add_log_line();
+              room_ptr->room_mtx.unlock();
+              EventLogger::transfer_log_to_canvas(filename, room_ptr);
             } else {
               room_ptr->room_mtx.unlock();
             }
-            EventLogger::PixelPaintedEvent event = EventLogger::create_pixel_painted_event(dt, username, last_edit.index, last_edit.color, "pixel_update");
+            EventLogger::PaintedEvent event =
+                EventLogger::create_undo_event(dt, username);
             EventLogger::append_event_to_log(filename, event);
           } else {
             room_ptr->room_mtx.unlock();
-            conn.send_text(
-                "{\"type\": \"exception\", \"message\": \"fail_to_undo\"}");
-            std::cerr << "No edits to undo." << std::endl;
+            std::cerr << "Failed to undo for user " << active_users.at(&conn)
+                      << " in file " << filename << std::endl;
+            return;
           }
         } else {
           conn.send_text("{\"type\": \"exception\", \"message\": "

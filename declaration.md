@@ -64,7 +64,7 @@ Body:
 | `user_joined`        | 用户加入   | `username` `time`                        |
 | `user_left`          | 用户离开   | `username` `time`                        |
 | `pixel_update`       | 更新像素   | `username` `color` `index` `time`        |
-| `area_update`        | 更新区域   | `username` `color` `index` `time` `size` |
+| `square_update`      | 更新方形   | `username` `color` `index` `time` `size` |
 | `canvas`             | 画布     | `canvas`                                 |
 | `file_list`          | 文件列表   | `files` `current_working`                |
 | `user_list`          | 用户列表   | `users`                                  |
