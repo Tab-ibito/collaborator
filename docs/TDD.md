@@ -212,3 +212,28 @@ static std::unordered_map<std::string, std::unique_ptr<CanvasRoom>>
 而经过每若干项操作后**自动存储一次快照到磁盘上**。
 
 以时间戳为基础我们可以尝试*尝试重写撤销重做逻辑*，抑或以实际时间为标准**建立自动保存快照副本**。
+
+## Feat: Square Brush 2026.4.1
+
+现在支持**正方形区域**范围内的笔刷与撤销。
+
+## Update: Bettering Architecture 2026.4.2
+
+更新了后端的数据组织方式方法。现在 `.log` 文件中的存储采用了与服务器发包**完全相同的** json 字符串格式。
+
+例如：
+```json
+{"type":"pixel_update","color":"#999","filename":"canvas_state","index":86,"username":"1","timestamp":"Thu Apr  2 15:08:12 2026\n"}
+```
+
+目前暂时支持 `pixel_update`, `square_update`, `user_undone` (aka `multipixel_update` ) 这些子项，  
+它们都可以**不经特殊处理** 
+* 直接通过 `event_logger` 的 `create_pixel_painted_event` 等一系列方法生成，
+* 直接存入 `.log`，直存直取。
+* 亦可**直接发包**。
+
+优点：
+* 可拓展性强，在基础的 `pixel_update` 和 `multipixel_update` 上我们可以拓展出**直线，椭圆**等，并通过**数学方程**表达确定。
+* 尽量减少了数据存读的压力。
+
+接下来我们可以加入**圆 / 直线**

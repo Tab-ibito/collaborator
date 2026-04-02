@@ -293,8 +293,8 @@ ws.onmessage = (event) => {
             break;
         case "user_undone":
             $opHistory.innerHTML = "<p class=\"log-item\">"+`${update.time} User ${update.username} undone：${update.index} in color ${update.color} for file ${update.filename}`+"</p>" + $opHistory.innerHTML;
-            update.index.forEach((item) => {
-                $cells[item].style.backgroundColor = update.color[i];
+            update.indices.forEach((item) => {
+                $cells[item].style.backgroundColor = update.colors[i];
                 i++;
             })
             break;

@@ -12,5 +12,7 @@ namespace Painter {
 
     void square_paint(CanvasRoom* room_ptr, int index, int size, const std::string& color);
     
-    bool undo_paint(CanvasRoom* room_ptr, crow::json::wvalue& broadcast_data);
+    bool undo_paint(CanvasRoom* room_ptr);
+
+    void multipixel_paint(crow::json::rvalue indices, crow::json::rvalue colors, CanvasRoom* room_ptr);
 }

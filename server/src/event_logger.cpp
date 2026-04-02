@@ -3,32 +3,46 @@
 static std::mutex file_mtx; //给文件操作上锁，保护文件读写的互斥
 
 // 创建event实例
-EventLogger::PaintedEvent EventLogger::create_pixel_painted_event(const std::string& timestamp, const std::string& username, int index, const std::string& color) {
-    EventLogger::PaintedEvent event;
-    event.timestamp = timestamp;
-    event.username = username;
-    event.index = index;
-    event.color = color;
-    event.type  = "pixel_paint";
+crow::json::wvalue EventLogger::create_pixel_painted_event(const std::string& timestamp, const std::string& username, const std::string& filename, int index, const std::string& color) {
+    crow::json::wvalue event;
+    event["timestamp"] = timestamp;
+    event["username"] = username;
+    event["filename"] = filename;
+    event["index"] = index;
+    event["color"] = color;
+    event["type"] = "pixel_update";
     return event;
 }
 
-EventLogger::PaintedEvent EventLogger::create_square_painted_event(const std::string& timestamp, const std::string& username, int index, int size, const std::string& color) {
-    EventLogger::PaintedEvent event;
-    event.timestamp = timestamp;
-    event.username = username;
-    event.index = index;
-    event.size = size;
-    event.color = color;
-    event.type  = "square_paint";
+crow::json::wvalue EventLogger::create_square_painted_event(const std::string& timestamp, const std::string& username, const std::string& filename, int index, int size, const std::string& color) {
+    crow::json::wvalue event;
+    event["timestamp"] = timestamp;
+    event["username"] = username;
+    event["filename"] = filename;
+    event["index"] = index;
+    event["size"] = size;
+    event["color"] = color;
+    event["type"] = "square_update";
     return event;
 }
 
-EventLogger::PaintedEvent EventLogger::create_undo_event(const std::string& timestamp, const std::string& username) {
-    EventLogger::PaintedEvent event;
-    event.timestamp = timestamp;
-    event.username = username;
-    event.type  = "undo_paint";
+crow::json::wvalue EventLogger::create_undo_event(const std::string& timestamp, const std::string& username, const std::string& filename, const CanvasRoom* room_ptr) {
+    crow::json::wvalue event;
+    event["timestamp"] = timestamp;
+    event["username"] = username;
+    event["filename"] = filename;
+    event["type"] = "user_undone";
+    std::vector<int> indices;
+    std::vector<std::string> colors;
+    
+    for (const auto& change : room_ptr->edit_history.back().changes) {
+        indices.push_back(change.index);
+        colors.push_back(change.color);
+    }
+
+    event["indices"] = indices;
+    event["colors"] = colors;
+
     return event;
 }
 
@@ -64,40 +78,35 @@ int EventLogger::replay_canvas_state(const std::string& filename, CanvasRoom* ro
             std::cerr << "Failed to parse log line: " << line << std::endl;
             continue;
         }
-        EventLogger::PaintedEvent event;
-        event.type = x["type"].s();
-        event.timestamp = x["timestamp"].s();
-        event.username = x["username"].s();
-        event.index = x["index"].i();
-        event.color = x["color"].s();
-
-        crow::json::wvalue broadcast_data_trash; // 这个参数在replay过程中不需要用到，可以传一个空的wvalue对象
+        
+        std::string event_type = x["type"].s();
 
         // 应用这个事件到画布状态
-        if (event.type == "pixel_paint") {
+        if (event_type == "pixel_update") {
             room_ptr->room_mtx.lock();
-            Painter::pixel_paint(room_ptr, event.index, event.color);
+            Painter::pixel_paint(room_ptr, x["index"].i(), x["color"].s());
             room_ptr->room_mtx.unlock();
-        } else if (event.type == "square_paint") {
-            event.size = x["size"].i();
+        } else if (event_type == "square_update") {
+            int event_size = x["size"].i();
             room_ptr->room_mtx.lock();
-            Painter::square_paint(room_ptr, event.index, event.size, event.color);
+            Painter::square_paint(room_ptr, x["index"].i(), event_size, x["color"].s());
             room_ptr->room_mtx.unlock();
-        } else if (event.type == "undo_paint") {
+        } else if (event_type == "multipixel_update" || event_type == "user_undone") {
             room_ptr->room_mtx.lock();
-            Painter::undo_paint(room_ptr, broadcast_data_trash);
+            Painter::multipixel_paint(x["indices"], x["colors"], room_ptr);
             room_ptr->room_mtx.unlock();
         } else {
-            std::cerr << "Unknown event type in log: " << event.type << std::endl;
+            std::cerr << "Unknown event type in log: " << event_type << std::endl;
         }
         line_count++;
     }
+    room_ptr->edit_history.clear(); // 重放日志时不保留编辑历史，避免撤销操作影响重放结果
     log_file.close();
     return line_count;
 }
 
 // 将事件追加到日志文件
-void EventLogger::append_event_to_log(const std::string& filename, const PaintedEvent& event) {
+void EventLogger::append_event_to_log(const std::string& filename, const crow::json::wvalue& event) {
     std::string file_path = LOG_PATH + filename + LOG_EXTENSION;
     file_mtx.lock();
     std::ofstream log_file(file_path, std::ios::app);
@@ -106,16 +115,7 @@ void EventLogger::append_event_to_log(const std::string& filename, const Painted
         file_mtx.unlock();
         return;
     }
-    crow::json::wvalue event_json;
-    event_json["timestamp"] = event.timestamp;
-    event_json["type"] = event.type;
-    event_json["username"] = event.username;
-    event_json["index"] = event.index;
-    event_json["color"] = event.color;
-    if (event.type == "square_paint") {
-        event_json["size"] = event.size;
-    }
-    log_file << event_json.dump() << std::endl;
+    log_file << event.dump() << std::endl;
     log_file.close();
     file_mtx.unlock();
 }

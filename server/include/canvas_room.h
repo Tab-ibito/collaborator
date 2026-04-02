@@ -21,7 +21,6 @@ struct PixelChange {
 };
 
 struct Action {
-    std::string type;
     std::vector<PixelChange> changes;
 };
 
