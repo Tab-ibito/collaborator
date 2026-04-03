@@ -113,8 +113,10 @@ bool DBManager::find_user(const std::string& username) {
     }
     sqlite3_bind_text(stmt, 1, username.c_str(), -1, SQLITE_TRANSIENT);
     if (sqlite3_step(stmt) == SQLITE_ROW) {
+        sqlite3_finalize(stmt);
         return true;
     }
+    sqlite3_finalize(stmt);
     return false;
 }
 

@@ -12,6 +12,8 @@
 #include "../include/file_paths.h"
 #include "../include/painter.h"
 
+extern std::mutex file_mtx; //给文件操作上锁，保护文件读写的互斥
+
 struct CanvasRoom; 
 namespace EventLogger {
     crow::json::wvalue create_user_joined_event(const std::string& timestamp, const std::string& username); // 创建用户加入事件
@@ -32,6 +34,6 @@ namespace EventLogger {
 
     void clear_log_file(const std::string& filename); // 清空日志文件内容
     
-    void transfer_log_to_canvas(const std::string& filename, CanvasRoom* room_ptr); // 转移日志文件内容到新文件
+    void transfer_log_to_canvas(const std::string& filename, const std::vector<std::string>& canvas); // 转移日志文件内容到新文件
 
 } // namespace EventLogger

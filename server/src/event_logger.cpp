@@ -1,6 +1,6 @@
 #include "../include/event_logger.h"
 
-static std::mutex file_mtx; //给文件操作上锁，保护文件读写的互斥
+std::mutex file_mtx; //给文件操作上锁，保护文件读写的互斥
 
 // 打包json字符串和广播信息
 crow::json::wvalue EventLogger::create_user_joined_event(const std::string& timestamp, const std::string& username) {
@@ -150,7 +150,7 @@ void EventLogger::clear_log_file(const std::string& filename) {
 }
 
 // 将日志文件内容转移到新文件（比如canvas文件），并清空日志文件内容
-void EventLogger::transfer_log_to_canvas(const std::string& filename, CanvasRoom* room_ptr) {
+void EventLogger::transfer_log_to_canvas(const std::string& filename, const std::vector<std::string>& canvas) {
     std::string canvas_path = CANVAS_PATH + filename;
     file_mtx.lock();
     std::ofstream canvas_file(canvas_path, std::ios::binary);
@@ -159,11 +159,9 @@ void EventLogger::transfer_log_to_canvas(const std::string& filename, CanvasRoom
         file_mtx.unlock();
         return;
     }
-    room_ptr->room_mtx.lock();
-    for (const auto& color : room_ptr->canvas) {
+    for (const auto& color : canvas) {
         canvas_file << color << std::endl;
     }
-    room_ptr->room_mtx.unlock();
     canvas_file.close();
     file_mtx.unlock();
     EventLogger::clear_log_file(filename);
