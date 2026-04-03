@@ -53,7 +53,7 @@ Body:
 | `square_update` | 更新像素   | `color` `index` `size` |
 | `get_file_list` | 获取文件列表 | 无                      |
 | `get_user_list` | 获取用户列表 | 无                      |
-| `create_file`   | 创建文件   | `filename`             |
+| `create_file`   | 创建文件   | `filename` `width` `height`  |
 | `switch_file`   | 切换文件   | `filename`             |
 | `undo`          | 撤销     | 无                      |
 
@@ -66,7 +66,7 @@ Body:
 | `user_left`    | 用户离开   | `username` `time`                        |
 | ***`pixel_update`*** | 更新像素   | `username` `color` `index` `time`        |
 | ***`square_update`*** | 更新方形   | `username` `color` `index` `time` `size` |
-| `canvas`       | 画布     | `canvas`                                 |
+| `canvas`       | 画布     | `canvas` `width` `height`                         |
 | `file_list`    | 文件列表   | `files` `current_working`                |
 | `user_list`    | 用户列表   | `users`                                  |
 | `user_switched_file` | 用户切换文件 | `username` `filename` `time`             |

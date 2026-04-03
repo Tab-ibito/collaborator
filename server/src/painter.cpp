@@ -2,10 +2,10 @@
 # include "../include/event_logger.h"
 # include "../include/painter.h"
 
-std::vector<int> Painter::get_square_indices(int index, int size) {
+std::vector<int> Painter::get_square_indices(int index, int size, int width, int height) {
     std::vector<int> indices;
-    int row = index / COL;
-    int col = index % ROW;
+    int row = index / width;
+    int col = index % width;
     int offset = size / 2;
     row -= offset;
     col -= offset;
@@ -13,8 +13,8 @@ std::vector<int> Painter::get_square_indices(int index, int size) {
         for (int j = 0; j < size; j++) {
             int current_row = row + i;
             int current_col = col + j;
-            if (0 <= current_row && current_row < ROW && 0 <= current_col && current_col < COL) {
-                indices.push_back(current_row * COL + current_col);
+            if (0 <= current_row && current_row < height && 0 <= current_col && current_col < width) {
+                indices.push_back(current_row * width + current_col);
             }
         }
     }
@@ -34,12 +34,11 @@ void Painter::pixel_paint(CanvasRoom* room_ptr, int index, const std::string& co
 
 // 绘制方块（没上锁）
 void Painter::square_paint(CanvasRoom* room_ptr, int index, int size, const std::string& color) {
-    auto indices = Painter::get_square_indices(index, size);
+    auto indices = Painter::get_square_indices(index, size, room_ptr->get_width(), room_ptr->get_height());
     Action action;
     for (int current_index : indices) {
         action.changes.push_back({current_index, room_ptr->canvas[current_index]});
         room_ptr->canvas[current_index] = color;
-        std::cout << "Painting index " << current_index << " with color " << color << std::endl;
     }
     room_ptr->edit_history.push_back(action); // 记录编辑历史
     if (room_ptr->edit_history.size() > MAX_EDIT_HISTORY) {

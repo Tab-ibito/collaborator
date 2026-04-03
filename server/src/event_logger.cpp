@@ -2,7 +2,24 @@
 
 static std::mutex file_mtx; //给文件操作上锁，保护文件读写的互斥
 
-// 创建event实例
+// 打包json字符串和广播信息
+crow::json::wvalue EventLogger::create_user_joined_event(const std::string& timestamp, const std::string& username) {
+    crow::json::wvalue event;
+    event["timestamp"] = timestamp;
+    event["username"] = username;
+    event["type"] = "user_joined";
+    return event;
+}
+
+crow::json::wvalue EventLogger::create_user_left_event(const std::string& timestamp, const std::string& username) {
+    crow::json::wvalue event;
+    event["timestamp"] = timestamp;
+    event["username"] = username;
+    event["type"] = "user_left";
+    return event;
+}
+
+// 创建draw信息
 crow::json::wvalue EventLogger::create_pixel_painted_event(const std::string& timestamp, const std::string& username, const std::string& filename, int index, const std::string& color) {
     crow::json::wvalue event;
     event["timestamp"] = timestamp;
@@ -61,16 +78,15 @@ bool EventLogger::create_blank_log(const std::string& filename) {
     return true;
 }
 
-// 从日志文件重放事件恢复画布状态，返回行数
-int EventLogger::replay_canvas_state(const std::string& filename, CanvasRoom* room_ptr) {
+// 从日志文件重放事件恢复画布状态
+void EventLogger::replay_canvas_state(const std::string& filename, CanvasRoom* room_ptr) {
     std::string file_path = LOG_PATH + filename + LOG_EXTENSION;
     std::ifstream log_file(file_path);
     if (!log_file.is_open()) {
         std::cerr << "Failed to open log file for replay: " << file_path << std::endl;
-        return -1;
+        return;
     }
     std::string line;
-    int line_count = 0;
     while (std::getline(log_file, line)) {
         // 这里假设每行都是一个 JSON 字符串，表示一个 PaintedEvent
         auto x = crow::json::load(line);
@@ -98,11 +114,10 @@ int EventLogger::replay_canvas_state(const std::string& filename, CanvasRoom* ro
         } else {
             std::cerr << "Unknown event type in log: " << event_type << std::endl;
         }
-        line_count++;
+        room_ptr->add_log_line();
     }
     room_ptr->edit_history.clear(); // 重放日志时不保留编辑历史，避免撤销操作影响重放结果
     log_file.close();
-    return line_count;
 }
 
 // 将事件追加到日志文件

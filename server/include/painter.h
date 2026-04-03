@@ -6,7 +6,7 @@
 # include <string>
 
 namespace Painter {
-    std::vector<int> get_square_indices(int index, int size);
+    std::vector<int> get_square_indices(int index, int size, int width, int height);
 
     void pixel_paint(CanvasRoom* room_ptr, int index, const std::string& color);
 

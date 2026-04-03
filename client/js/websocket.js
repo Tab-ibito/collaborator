@@ -4,8 +4,8 @@ const $x = document.getElementById('xInput');
 const $y = document.getElementById('yInput');
 const $submitBtn = document.getElementById('submitBtn');
 const $colorInput = document.getElementById('colorInput');
-const rows = 16;
-const cols = 16;
+let rows = 16;
+let cols = 16;
 const canvas_width = 320;
 const $warningMessage = document.getElementById("warningMessage");
 const $opHistory = document.getElementById("opHistory");
@@ -20,6 +20,8 @@ const $createFile = document.getElementById('createFile');
 const $createFileBtn = document.getElementById('createFileBtn');
 const $undoBtn = document.getElementById('undoBtn');
 const $brushSize = document.getElementById('brushModeSelect');
+const $widthInput = document.getElementById('widthInput');
+const $heightInput = document.getElementById('heightInput');
 
 const queryString = window.location.search;
 const urlParams = new URLSearchParams(queryString);
@@ -27,11 +29,20 @@ const currentUsername = urlParams.get('username');
 
 /* helper functions */
 // 初始化画布
-(() => {
-    const size = canvas_width / cols;
-    $gridBoard.style.gridTemplateColumns = `repeat(${cols}, ${size}px)`;
-    $gridBoard.innerHTML = `<div class="grid-cell" style='width: ${size}px; height: ${size}px;' role="gridcell"></div>`.repeat(rows * cols);
-})();
+const init_canvas = (width, height) => {
+    const size = canvas_width / width;
+    $gridBoard.style.gridTemplateColumns = `repeat(${width}, ${size}px)`;
+    $gridBoard.innerHTML = `<div class="grid-cell" style='width: ${size}px; height: ${size}px;' role="gridcell"></div>`.repeat(width * height);
+
+    // 给每一个像素绑定一个onclick监听
+    Array.from($cells).forEach((item) => {
+        item.addEventListener("click", async(event) => {
+            event.preventDefault();
+            const index = Array.from($cells).indexOf(item);
+            await updateSubmission(index, parseInt($brushSize.value));
+        })
+    })
+}
 
 const getGridIndex = () => {
     return parseInt($x.value) + parseInt($y.value) * rows;
@@ -124,7 +135,7 @@ class MiniPillow {
 }
 
 function exportMyDivArt() {
-    const img = new MiniPillow(16, 16); // 新建画布
+    const img = new MiniPillow(rows, cols); // 新建画布
     Array.from($cells).forEach((cell) => {
         const index = Array.from($cells).indexOf(cell);
         const [x, y] = getGridPosition(index);
@@ -150,15 +161,6 @@ const addFileEntryListener = () => {
     })
 }
 
-// 给每一个像素绑定一个onclick监听
-Array.from($cells).forEach((item) => {
-    item.addEventListener("click", async(event) => {
-        event.preventDefault();
-        const index = Array.from($cells).indexOf(item);
-        await updateSubmission(index, parseInt($brushSize.value));
-    })
-})
-
 // 通过submit按钮方式提交更新
 $submitBtn.addEventListener('click', async (event) => {
     event.preventDefault();
@@ -179,6 +181,8 @@ $createFileBtn.addEventListener('click', async (event) => {
     const payload = {
         type: "create_file",
         filename: $fileNameInput.value,
+        width: parseInt($widthInput.value),
+        height: parseInt($heightInput.value)
     };
     ws.send(JSON.stringify(payload));
     $createFile.style.display = "none";
@@ -267,9 +271,12 @@ ws.onmessage = (event) => {
             $opHistory.innerHTML = "<p class=\"log-item\">"+`${update.time} User ${update.username} left the document`+"</p>" + $opHistory.innerHTML;
             break;
         case "canvas":
+            rows = update.width;
+            cols = update.height;
+            init_canvas(rows, cols);
+            console.log(update);
             $opHistory.innerHTML = "<p class=\"log-item\">"+`Get canvas from server`+"</p>" + $opHistory.innerHTML;
             update.canvas.forEach((item) => {
-                console.log(item);
                 $cells[i].style.backgroundColor = item;
                 i++;
             })

@@ -130,7 +130,7 @@ body {
 	background-color: #fff;
 }
 
-#fileNameInput {
+.file-creation {
 	width: 100%;
 	height: 38px;
 	border: 1px solid #bbb;
@@ -142,7 +142,7 @@ body {
 	margin-bottom: 8px;
 }
 
-#fileNameInput:focus {
+.file-creation:focus {
 	border-color: #111;
 	outline: none;
 }

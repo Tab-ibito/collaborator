@@ -237,3 +237,11 @@ static std::unordered_map<std::string, std::unique_ptr<CanvasRoom>>
 * 尽量减少了数据存读的压力。
 
 接下来我们可以加入**圆 / 直线**
+
+## Feat: Document Metadata Storage, Customize Size And Asynchronous Broadcast Decoupling 2026.4.3
+
+* 将 `users.db` 更改为 `server.db`，加入一张  `canvas_metadata` 的表格，可以**维护画布的属性参数**，例如创建日期，长宽尺寸
+  * 配合地升级了CanvasRoom，做了 public 与 private 的权限区分。
+* 配合升级了前端，以此支持用户自定义画布尺寸。
+* 异步消息发送（例如房间为单位，或者全局群发）通过**独立线程**单独维护
+  * 严格保证时序性，同时防止线程被消息收发堵塞
