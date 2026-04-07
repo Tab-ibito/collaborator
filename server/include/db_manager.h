@@ -1,6 +1,7 @@
 # pragma once
 # include <sqlite3.h>
 # include <string>
+# include <vector>
 
 class DBManager {
 public:
@@ -19,6 +20,7 @@ public:
     // 操作canvas_metadata数据库表
     bool create_canvas_metadata(const std::string& filename, const int width, const int height, const std::string& created_at);
     bool get_canvas_metadata(const std::string& filename, int& width, int& height, std::string& created_at);
+    std::vector<std::string> get_canvas_list();
 
     // 用于测试    
     bool reset_tables();

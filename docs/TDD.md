@@ -260,3 +260,11 @@ static std::unordered_map<std::string, std::unique_ptr<CanvasRoom>>
 暂时解决了三处，主要在于 `lobby_mtx` 与 `room_mtx` 的时序微调。
 
 还需要解决在 `switch_file` 中对 `lobby_mtx` 的长期占用。
+
+## Feat: Added Line Painter 2026.4.6
+
+前后端都加入了支持直线绘制的工具，基于bresenham's line algorithm实现。
+
+## Update: Binary Network 2026.4.7
+
+将所有通过网络传输的 `canvas` 改成了 `canvas_incoming` 和二进制字节流，节约包体空间，防止内存爆炸。

@@ -12,6 +12,10 @@ namespace Painter {
 
     void square_paint(CanvasRoom* room_ptr, int index, int size, const std::string& color);
     
+    void line_paint(CanvasRoom* room_ptr, int start_index, int end_index, const std::string& color);
+
+    void circle_paint(CanvasRoom* room_ptr, int center_index, int radius, const std::string& color);
+
     bool undo_paint(CanvasRoom* room_ptr);
 
     void multipixel_paint(crow::json::rvalue indices, crow::json::rvalue colors, CanvasRoom* room_ptr);

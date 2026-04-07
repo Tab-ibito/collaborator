@@ -20,9 +20,15 @@ namespace EventLogger {
 
     crow::json::wvalue create_user_left_event(const std::string& timestamp, const std::string& username); // 创建用户离开事件
 
+    crow::json::wvalue create_canvas_incoming_event(int width, int height); // 创建画布进入事件
+
+    std::vector<uint8_t> create_binary_canvas_data(const CanvasRoom* room_ptr); // 创建二进制画布数据
+
     crow::json::wvalue create_pixel_painted_event(const std::string& timestamp, const std::string& username, const std::string& filename, int index, const std::string& color); // 创建像素绘制事件
     
     crow::json::wvalue create_square_painted_event(const std::string& timestamp, const std::string& username, const std::string& filename, int index, int size, const std::string& color); // 创建方块绘制事件
+
+    crow::json::wvalue create_line_painted_event(const std::string& timestamp, const std::string& username, const std::string& filename, int start_index, int end_index, const std::string& color); // 创建线条绘制事件
 
     crow::json::wvalue create_undo_event(const std::string& timestamp, const std::string& username, const std::string& filename, const CanvasRoom* room_ptr); // 创建多像素绘制事件
 

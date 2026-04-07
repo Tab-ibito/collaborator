@@ -308,17 +308,21 @@ void setup_websocket_routes(crow::App<crow::CORSHandler> &app,
           CanvasRoom *room_ptr =
               active_rooms.find("canvas_state")->second.get();
           lobby_mtx.unlock();
-          broadcast_canvas["type"] = "canvas";
+
+          std::vector<uint8_t> binary_data;
+          binary_data.reserve(room_ptr->get_size() * 3);
+          
           room_ptr->room_mtx.lock();
           room_ptr->connections.insert(&conn); // 将用户加入房间
-          broadcast_canvas["canvas"] = room_ptr->canvas;
-          broadcast_canvas["width"] = room_ptr->get_width();
-          broadcast_canvas["height"] = room_ptr->get_height();
+          binary_data = EventLogger::create_binary_canvas_data(room_ptr);
           room_ptr->room_mtx.unlock();
 
           std::cout << "Sending current canvas state to " << username
                     << std::endl;
-          conn.send_text(broadcast_canvas.dump());
+          
+          crow::json::wvalue broadcast_canvas_incoming = EventLogger::create_canvas_incoming_event(room_ptr->get_width(), room_ptr->get_height());
+          conn.send_text(broadcast_canvas_incoming.dump());
+          conn.send_binary(std::string(binary_data.begin(), binary_data.end()));
         } else if (type == "pixel_update") {
           if (!x.has("index") || !x.has("color") ||
               x["index"].t() != crow::json::type::Number ||
@@ -445,19 +449,8 @@ void setup_websocket_routes(crow::App<crow::CORSHandler> &app,
           conn.send_text(broadcast_data.dump());
         } else if (type == "get_file_list") {
           // 处理获取文件列表的请求
-          std::vector<std::string> file_list;
-          std::string path = CANVAS_PATH;
-          file_mtx.lock();
-          for (const auto &entry : std::filesystem::directory_iterator(path)) {
-            if (entry.is_regular_file()) {
-              file_list.push_back(entry.path().filename().string());
-            }
-          }
-
-          // 当前正在编辑的文件
-          file_mtx.unlock();
           broadcast_data["type"] = "file_list";
-          broadcast_data["files"] = file_list;
+          broadcast_data["files"] = db_manager.get_canvas_list();
           std::cout << "Sending file list: " << broadcast_data.dump()
                     << std::endl;
           conn.send_text(broadcast_data.dump());
@@ -512,6 +505,66 @@ void setup_websocket_routes(crow::App<crow::CORSHandler> &app,
           }
           file_mtx.unlock();
 
+        } else if (type == "line_update") {
+          // 处理绘制线条的请求
+          if (!x.has("start_index") || !x.has("end_index") || !x.has("color") ||
+              x["start_index"].t() != crow::json::type::Number ||
+              x["end_index"].t() != crow::json::type::Number ||
+              x["color"].t() != crow::json::type::String) {
+            conn.send_text("{\"type\": \"exception\", \"message\": "
+                           "\"invalid_line_update_data\"}");
+            std::cerr << "Invalid line update data." << std::endl;
+            return;
+          }
+          int start_index = x["start_index"].i();
+          int end_index = x["end_index"].i();
+          std::string color = x["color"].s();
+
+          std::string username;
+          std::string filename;
+
+          users_mutex.lock();
+          username = active_users[&conn];
+          users_mutex.unlock();
+
+          lobby_mtx.lock();
+          filename = user_current_files[&conn];
+          CanvasRoom *room_ptr = active_rooms[user_current_files[&conn]].get();
+          room_ptr->room_mtx.lock();
+          lobby_mtx.unlock();
+
+          // 包装广播数据
+          if (0 <= start_index && start_index < room_ptr->get_size() &&
+              0 <= end_index && end_index < room_ptr->get_size()) {
+            Painter::line_paint(room_ptr, start_index, end_index, color);
+          } else {
+            room_ptr->room_mtx.unlock();
+            conn.send_text("{\"type\": \"exception\", \"message\": "
+                           "\"fail_to_update_line\"}");
+            std::cerr << "Invalid line update data: start_index=" << start_index
+                      << ", end_index=" << end_index << std::endl;
+            return;
+          }
+
+          broadcast_data = EventLogger::create_line_painted_event(
+              dt, username, filename, start_index, end_index, color);
+          EventLogger::append_event_to_log(filename, broadcast_data);          
+
+          // 把广播信件塞进邮筒
+          {
+            std::lock_guard<std::mutex> lock(bq_mtx);
+            broadcast_queue.push_back({filename, broadcast_data.dump()});
+          }
+          bq_cv.notify_one();
+
+          if (room_ptr->add_log_line()) {
+            room_ptr->add_log_line();
+            std::vector<std::string> canvas_copy = room_ptr->canvas; // 复制当前画布状态，避免在转移过程中被修改
+            room_ptr->room_mtx.unlock();
+            EventLogger::transfer_log_to_canvas(filename, canvas_copy);
+          } else {
+            room_ptr->room_mtx.unlock();
+          }
         } else if (type == "switch_file") {
           if (!x.has("filename") ||
               x["filename"].t() != crow::json::type::String) {
@@ -607,19 +660,19 @@ void setup_websocket_routes(crow::App<crow::CORSHandler> &app,
             }
 
             bq_cv.notify_one();
-
             std::cout << "Switched to file: " << filename << std::endl;
 
             // 切换文件后广播新的画布状态
-            broadcast_canvas["type"] = "canvas";
-            broadcast_canvas["canvas"] = new_room_ptr->canvas;
+
+            crow::json::wvalue broadcast_canvas_incoming = EventLogger::create_canvas_incoming_event(new_room_ptr->get_width(), new_room_ptr->get_height());
+            std::vector<uint8_t> binary_data;
+            binary_data = EventLogger::create_binary_canvas_data(new_room_ptr);
             new_room_ptr->room_mtx.unlock();
-            broadcast_canvas["width"] = new_room_ptr->get_width();
-            broadcast_canvas["height"] = new_room_ptr->get_height();
 
             lobby_mtx.unlock();
 
-            conn.send_text(broadcast_canvas.dump());
+            conn.send_text(broadcast_canvas_incoming.dump());
+            conn.send_binary(std::string(binary_data.begin(), binary_data.end()));
           } else {
             conn.send_text("{\"type\": \"exception\", \"message\": "
                            "\"fail_to_open_file\"}");
@@ -723,6 +776,8 @@ int main() {
   worker.detach();
 
   app.port(SERVER_PORT).multithreaded().run();
+
+  std::cout << "Ctrl + C again to stop the server." << std::endl;
 
   // 服务器关闭时会自动调用DBManager的析构函数，关闭数据库连接
   return 0;

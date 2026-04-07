@@ -1,5 +1,6 @@
 # include "../include/db_manager.h"
 # include <iostream>
+# include <vector>
 
 // 构造函数，打开数据库连接
 DBManager::DBManager(const std::string& db_path) {
@@ -164,6 +165,24 @@ bool DBManager::get_canvas_metadata(const std::string& filename, int& width, int
         sqlite3_finalize(stmt);
         return false;
     }
+}
+
+std::vector<std::string> DBManager::get_canvas_list() {
+    std::vector<std::string> canvas_list;
+    const char* sql = "SELECT filename FROM canvas_metadata;";
+    sqlite3_stmt* stmt;
+    if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) != SQLITE_OK) {
+        std::cerr << "Failed to prepare statement: " << sqlite3_errmsg(db) << std::endl;
+        return canvas_list;
+    }
+    std::cout << "Available canvases:" << std::endl;
+    while (sqlite3_step(stmt) == SQLITE_ROW) {
+        const unsigned char* filename = sqlite3_column_text(stmt, 0);
+        std::cout << "- " << filename << std::endl;
+        canvas_list.push_back(reinterpret_cast<const char*>(filename));
+    }
+    sqlite3_finalize(stmt);
+    return canvas_list;
 }
 
 // 用于测试，重置数据库表

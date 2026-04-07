@@ -284,6 +284,74 @@ body {
 	outline: none;
 }
 
+.line-tool {
+	margin-top: 16px;
+	display: grid;
+	gap: 8px;
+	max-width: 224px;
+	padding: 12px;
+	border: 1px solid #bbb;
+	border-radius: 8px;
+	background-color: #fff;
+}
+
+.line-tool-title {
+	margin: 0;
+	font-size: 13px;
+	font-weight: 700;
+	color: #111;
+}
+
+.line-controls {
+	display: grid;
+	gap: 8px;
+}
+
+.line-controls label {
+	display: grid;
+	gap: 6px;
+	font-size: 13px;
+	font-weight: 600;
+}
+
+.line-controls input {
+	height: 38px;
+	border: 1px solid #bbb;
+	border-radius: 8px;
+	padding: 0 10px;
+	font-size: 14px;
+	background-color: #fff;
+	color: #111;
+}
+
+.line-controls input:focus {
+	border-color: #111;
+	outline: none;
+}
+
+.line-actions {
+	display: grid;
+	grid-template-columns: 1fr;
+	gap: 8px;
+	margin-top: 4px;
+}
+
+.line-actions button {
+	height: 38px;
+	border: 1px solid #111;
+	border-radius: 8px;
+	background-color: #fff;
+	color: #111;
+	font-size: 14px;
+	font-weight: 700;
+	cursor: pointer;
+}
+
+.line-actions button:hover {
+	background-color: #111;
+	color: #fff;
+}
+
 .grid-cell {
 	width: 56px;
 	height: 56px;

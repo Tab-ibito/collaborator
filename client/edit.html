@@ -40,6 +40,31 @@
                         <option value="7">7 * 7</option>
                     </select>
                 </div>
+
+                <div class="line-tool" aria-label="line drawing tool">
+                    <h3 class="line-tool-title">直线工具</h3>
+                    <div class="line-controls" aria-label="line coordinates input">
+                        <label>
+                            起始X
+                            <input id="startXInput" type="number" min="0" max="3" placeholder="0-3">
+                        </label>
+                        <label>
+                            起始Y
+                            <input id="startYInput" type="number" min="0" max="3" placeholder="0-3">
+                        </label>
+                        <label>
+                            终止X
+                            <input id="endXInput" type="number" min="0" max="3" placeholder="0-3">
+                        </label>
+                        <label>
+                            终止Y
+                            <input id="endYInput" type="number" min="0" max="3" placeholder="0-3">
+                        </label>
+                    </div>
+                    <div class="line-actions" aria-label="draw line action">
+                        <button id="drawLineBtn" type="button">绘制直线</button>
+                    </div>
+                </div>
             </section>
         </section>
 

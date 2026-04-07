@@ -4,8 +4,8 @@ const $x = document.getElementById('xInput');
 const $y = document.getElementById('yInput');
 const $submitBtn = document.getElementById('submitBtn');
 const $colorInput = document.getElementById('colorInput');
-let rows = 16;
-let cols = 16;
+let height = 16;
+let width = 16;
 const canvas_width = 320;
 const $warningMessage = document.getElementById("warningMessage");
 const $opHistory = document.getElementById("opHistory");
@@ -22,6 +22,12 @@ const $undoBtn = document.getElementById('undoBtn');
 const $brushSize = document.getElementById('brushModeSelect');
 const $widthInput = document.getElementById('widthInput');
 const $heightInput = document.getElementById('heightInput');
+
+const $startXInput = document.getElementById('startXInput');
+const $startYInput = document.getElementById('startYInput');
+const $endXInput = document.getElementById('endXInput');
+const $endYInput = document.getElementById('endYInput');
+const $drawLineBtn = document.getElementById('drawLineBtn');
 
 const queryString = window.location.search;
 const urlParams = new URLSearchParams(queryString);
@@ -45,24 +51,24 @@ const init_canvas = (width, height) => {
 }
 
 const getGridIndex = () => {
-    return parseInt($x.value) + parseInt($y.value) * rows;
+    return parseInt($x.value) + parseInt($y.value) * height;
 };
 
 const getGridPosition = (index) => {
-    return [index % cols, Math.floor(index / rows)];
+    return [index % width, Math.floor(index / height)];
 }
 
 const getIndexIndices = (index, size) => {
     const parsedIndex = parseInt(index, 10);
     const parsedSize = parseInt(size, 10);
 
-    if (Number.isNaN(parsedIndex) || parsedIndex < 0 || parsedIndex >= rows * cols) {
+    if (Number.isNaN(parsedIndex) || parsedIndex < 0 || parsedIndex >= height * width) {
         return [];
     }
 
     const blockSize = Number.isNaN(parsedSize) || parsedSize < 1 ? 1 : parsedSize;
-    const centerX = parsedIndex % cols;
-    const centerY = Math.floor(parsedIndex / cols);
+    const centerX = parsedIndex % width;
+    const centerY = Math.floor(parsedIndex / width);
 
     // Keep index as center cell for odd sizes; for even sizes, extend one extra cell to the right/bottom.
     const left = centerX - Math.floor((blockSize - 1) / 2);
@@ -73,9 +79,43 @@ const getIndexIndices = (index, size) => {
     const indices = [];
     for (let y = top; y <= bottom; y++) {
         for (let x = left; x <= right; x++) {
-            if (x >= 0 && x < cols && y >= 0 && y < rows) {
-                indices.push(y * cols + x);
+            if (x >= 0 && x < width && y >= 0 && y < height) {
+                indices.push(y * width + x);
             }
+        }
+    }
+
+    return indices;
+}
+
+// 通过起始和终止坐标绘制直线（使用Bresenham算法）
+const getLineIndices = (startIndex, endIndex) => {
+    const [startX, startY] = getGridPosition(startIndex);
+    const [endX, endY] = getGridPosition(endIndex);
+
+    const indices = [];
+    const dx = Math.abs(endX - startX);
+    const dy = Math.abs(endY - startY);
+    const sx = startX < endX ? 1 : -1;
+    const sy = startY < endY ? 1 : -1;
+    let err = dx - dy;
+
+    let x = startX;
+    let y = startY;
+
+    while (true) {
+        indices.push(y * width + x);
+
+        if (x === endX && y === endY) break;
+
+        const e2 = 2 * err;
+        if (e2 > -dy) {
+            err -= dy;
+            x += sx;
+        }
+        if (e2 < dx) {
+            err += dx;
+            y += sy;
         }
     }
 
@@ -135,7 +175,7 @@ class MiniPillow {
 }
 
 function exportMyDivArt() {
-    const img = new MiniPillow(rows, cols); // 新建画布
+    const img = new MiniPillow(height, width); // 新建画布
     Array.from($cells).forEach((cell) => {
         const index = Array.from($cells).indexOf(cell);
         const [x, y] = getGridPosition(index);
@@ -166,6 +206,28 @@ $submitBtn.addEventListener('click', async (event) => {
     event.preventDefault();
     const index = getGridIndex();
     await updateSubmission(index, parseInt($brushSize.value));
+});
+
+// 绘制直线工具
+$drawLineBtn.addEventListener('click', async (event) => {
+    event.preventDefault();
+    const startIndex = parseInt($startXInput.value) + parseInt($startYInput.value) * width;
+    const endIndex = parseInt($endXInput.value) + parseInt($endYInput.value) * width;
+    if (startIndex >= 0 && endIndex >= 0 && startIndex < height * width && endIndex < height * width) {
+        const payload = {
+            "type": "line_update",
+            "start_index": startIndex,
+            "end_index": endIndex,
+            "color": $colorInput.value
+        }
+        if (!CSS.supports("color", $colorInput.value)) {
+            $warningMessage.textContent = "Invalid color";
+            return;
+        }
+        ws.send(JSON.stringify(payload));
+    } else {
+        $warningMessage.textContent = "Invalid Index";
+    }
 });
 
 // 获取目录内文件名单
@@ -206,6 +268,7 @@ $onlineUsersBtn.addEventListener('click', async (event) => {
 
 /* websocket connection for edit */
 const ws = new WebSocket('ws://localhost:1145/ws/edit');
+ws.binaryType = 'arraybuffer';
 
 // 建立连接
 ws.onopen = () => {
@@ -252,64 +315,89 @@ const updateSubmission = async (index, size) => {
 }
 // 收到广播消息更改像素
 ws.onmessage = (event) => {
-    const update = JSON.parse(event.data);
-    let i = 0;
-    switch (update.type) {
-        case "user_joined":
-            $opHistory.innerHTML = "<p class=\"log-item\">"+`${update.time} User ${update.username} joined the document`+"</p>" + $opHistory.innerHTML;
-            break;
-        case "pixel_update":
-            $opHistory.innerHTML = "<p class=\"log-item\">"+`${update.time} User ${update.username} changed index：${update.index} in color ${update.color} for file ${update.filename}`+"</p>" + $opHistory.innerHTML;
-            $cells[update.index].style.backgroundColor = update.color;
-            break;
-        case "square_update":
-            getIndexIndices(update.index, update.size).forEach((i) => {
-                $cells[i].style.backgroundColor = update.color;
-            });
-            break;
-        case "user_left":
-            $opHistory.innerHTML = "<p class=\"log-item\">"+`${update.time} User ${update.username} left the document`+"</p>" + $opHistory.innerHTML;
-            break;
-        case "canvas":
-            rows = update.width;
-            cols = update.height;
-            init_canvas(rows, cols);
-            console.log(update);
-            $opHistory.innerHTML = "<p class=\"log-item\">"+`Get canvas from server`+"</p>" + $opHistory.innerHTML;
-            update.canvas.forEach((item) => {
-                $cells[i].style.backgroundColor = item;
-                i++;
-            })
-            break;
-        case "user_list":
-            $infoList.innerHTML = "";
-            update.users.forEach((item) => {
-                $infoList.innerHTML += `<p>${item}</p>`;
-            })
-            break;
-        case "file_list":
-            $infoList.innerHTML = "";
-            update.files.forEach((item) => {
-                $infoList.innerHTML += `<p class="file-entry">${item}</p>`;
-            })
-            $infoList.innerHTML += `<p style="color: red"> Current Working on: ${update.current_working} </p>`;
-            addFileEntryListener();
-            break;
-        case "user_switched_file":
-            $opHistory.innerHTML = "<p class=\"log-item\">"+`${update.time} User ${update.username} switched current file to ${update.filename}`+"</p>" + $opHistory.innerHTML;
-            break;
-        case "user_undone":
-            $opHistory.innerHTML = "<p class=\"log-item\">"+`${update.time} User ${update.username} undone：${update.index} in color ${update.color} for file ${update.filename}`+"</p>" + $opHistory.innerHTML;
-            update.indices.forEach((item) => {
-                $cells[item].style.backgroundColor = update.colors[i];
-                i++;
-            })
-            break;
-        case "exception":
-            exceptionHandler(update.message);
-            break;
-        default:
-            break;
+    if (typeof event.data === "string") {
+        const update = JSON.parse(event.data);
+        let i = 0;
+        switch (update.type) {
+            case "canvas_incoming":
+                height = update.height;
+                width = update.width;
+                init_canvas(width, height);
+                break;
+            case "user_joined":
+                $opHistory.innerHTML = "<p class=\"log-item\">"+`${update.time} User ${update.username} joined the document`+"</p>" + $opHistory.innerHTML;
+                break;
+            case "pixel_update":
+                $opHistory.innerHTML = "<p class=\"log-item\">"+`${update.time} User ${update.username} changed index：${update.index} in color ${update.color} for file ${update.filename}`+"</p>" + $opHistory.innerHTML;
+                $cells[update.index].style.backgroundColor = update.color;
+                break;
+            case "square_update":
+                getIndexIndices(update.index, update.size).forEach((i) => {
+                    $cells[i].style.backgroundColor = update.color;
+                });
+                break;
+            case "line_update":
+                getLineIndices(update.start_index, update.end_index).forEach((i) => {
+                    $cells[i].style.backgroundColor = update.color;
+                });
+                $opHistory.innerHTML = "<p class=\"log-item\">"+`${update.time} User ${update.username} drew a line in color ${update.color} for file ${update.filename}`+"</p>" + $opHistory.innerHTML;
+                break;
+            case "canvas":
+                width = update.width;
+                height = update.height;
+                init_canvas(width, height);
+                console.log(update);
+                $opHistory.innerHTML = "<p class=\"log-item\">"+`Get canvas from server`+"</p>" + $opHistory.innerHTML;
+                update.canvas.forEach((item) => {
+                    $cells[i].style.backgroundColor = item;
+                    i++;
+                })
+                break;
+            case "user_list":
+                $infoList.innerHTML = "";
+                update.users.forEach((item) => {
+                    $infoList.innerHTML += `<p>${item}</p>`;
+                })
+                break;
+            case "file_list":
+                $infoList.innerHTML = "";
+                update.files.forEach((item) => {
+                    $infoList.innerHTML += `<p class="file-entry">${item}</p>`;
+                })
+                $infoList.innerHTML += `<p style="color: red"> Current Working on: ${update.current_working} </p>`;
+                addFileEntryListener();
+                break;
+            case "user_switched_file":
+                $opHistory.innerHTML = "<p class=\"log-item\">"+`${update.time} User ${update.username} switched current file to ${update.filename}`+"</p>" + $opHistory.innerHTML;
+                break;
+            case "user_undone":
+                $opHistory.innerHTML = "<p class=\"log-item\">"+`${update.time} User ${update.username} undone：${update.index} in color ${update.color} for file ${update.filename}`+"</p>" + $opHistory.innerHTML;
+                update.indices.forEach((item) => {
+                    $cells[item].style.backgroundColor = update.colors[i];
+                    i++;
+                })
+                break;
+            case "exception":
+                exceptionHandler(update.message);
+                break;
+            default:
+                break;
+        }
+    } else if (event.data instanceof ArrayBuffer) {
+        const buffer = new Uint8Array(event.data);
+        let j = 0;
+        for (let i = 0; i < buffer.length; i += 3) {
+            let color = "#";
+            const r = buffer[i].toString(16);
+            const g = buffer[i+1].toString(16);
+            const b = buffer[i+2].toString(16);
+            color += r.length === 1 ? "0" + r : r;
+            color += g.length === 1 ? "0" + g : g;
+            color += b.length === 1 ? "0" + b : b;
+            console.log(color);
+            $cells[j].style.backgroundColor = color;
+            j++;
+        }
     }
 };
 

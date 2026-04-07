@@ -46,6 +46,47 @@ void Painter::square_paint(CanvasRoom* room_ptr, int index, int size, const std:
     }
 }
 
+// 绘制线条（没有上锁）
+void Painter::line_paint(CanvasRoom* room_ptr, int start_index, int end_index
+, const std::string& color) {
+    int width = room_ptr->get_width();
+    int height = room_ptr->get_height();
+    int x1 = start_index % width;
+    int y1 = start_index / width;
+    int x2 = end_index % width;
+    int y2 = end_index / width;
+
+    Action action;
+
+    int dx = std::abs(x2 - x1);
+    int dy = std::abs(y2 - y1);
+    int sx = (x1 < x2) ? 1 : -1;
+    int sy = (y1 < y2) ? 1 : -1;
+    int err = dx - dy;
+
+    while (true) {
+        int current_index = y1 * width + x1;
+        action.changes.push_back({current_index, room_ptr->canvas[current_index]});
+        room_ptr->canvas[current_index] = color;
+
+        if (x1 == x2 && y1 == y2) break;
+        int err2 = err * 2;
+        if (err2 > -dy) {
+            err -= dy;
+            x1 += sx;
+        }
+        if (err2 < dx) {
+            err += dx;
+            y1 += sy;
+        }
+    }
+
+    room_ptr->edit_history.push_back(action); // 记录编辑历史
+    if (room_ptr->edit_history.size() > MAX_EDIT_HISTORY) {
+        room_ptr->edit_history.pop_front();
+    }
+}
+
 // 撤销操作（没有上锁）
 bool Painter::undo_paint(CanvasRoom* room_ptr) {
     if (!room_ptr->edit_history.empty()) {
