@@ -268,3 +268,11 @@ static std::unordered_map<std::string, std::unique_ptr<CanvasRoom>>
 ## Update: Binary Network 2026.4.7
 
 将所有通过网络传输的 `canvas` 改成了 `canvas_incoming` 和二进制字节流，节约包体空间，防止内存爆炸。
+
+## Update: Speed Optimization 2026.4.9
+
+优化了
+
+* 前端的**渲染机制**，不再使用笨重的很多个 `<div>` ，改为使用 `<canvas>` 渲染。
+* 增加了 `scale` 选项设置，可以在前端设置放大比例
+* 后端的画布文件也改为了**二进制字节流**处理

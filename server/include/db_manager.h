@@ -20,6 +20,7 @@ public:
     // 操作canvas_metadata数据库表
     bool create_canvas_metadata(const std::string& filename, const int width, const int height, const std::string& created_at);
     bool get_canvas_metadata(const std::string& filename, int& width, int& height, std::string& created_at);
+    bool delete_canvas_metadata(const std::string& filename);
     std::vector<std::string> get_canvas_list();
 
     // 用于测试    

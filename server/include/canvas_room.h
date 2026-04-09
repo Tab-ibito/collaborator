@@ -26,13 +26,13 @@ struct Action {
 
 class CanvasRoom {
   public:
-    std::vector<std::string> canvas;
+    std::vector<uint8_t> binary_canvas; // 二进制画布数据
     std::unordered_set<crow::websocket::connection *> connections;
     std::mutex room_mtx;
     std::deque<Action> edit_history;
 
-    CanvasRoom() : canvas(DEFAULT_CANVAS_SIZE, "#FFFFFF"), canvas_width(DEFAULT_COL), created_at(""), canvas_height(DEFAULT_ROW), canvas_size(DEFAULT_CANVAS_SIZE) {}
-    CanvasRoom(int width, int height, const std::string& created_at) : canvas(width * height, "#FFFFFF"), canvas_width(width), canvas_height(height), created_at(created_at), canvas_size(width * height) {}
+    CanvasRoom() : binary_canvas(DEFAULT_CANVAS_SIZE * 3, 255), canvas_width(DEFAULT_COL), created_at(""), canvas_height(DEFAULT_ROW), canvas_size(DEFAULT_CANVAS_SIZE) {}
+    CanvasRoom(int width, int height, const std::string& created_at) : binary_canvas(width * height * 3, 255), canvas_width(width), canvas_height(height), created_at(created_at), canvas_size(width * height) {}
 
     int get_size() const {
         return canvas_size;

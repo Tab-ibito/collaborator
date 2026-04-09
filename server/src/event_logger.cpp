@@ -32,45 +32,6 @@ crow::json::wvalue EventLogger::create_canvas_incoming_event(int width,
   return event;
 }
 
-// 创建二进制画布数据（未上锁）
-std::vector<uint8_t>
-EventLogger::create_binary_canvas_data(const CanvasRoom *room_ptr) {
-  std::vector<uint8_t> binary_data;
-  binary_data.reserve(room_ptr->get_size() * 3);
-  for (const auto &hex_color : room_ptr->canvas) {
-    uint8_t r = 255, g = 255, b = 255; // 🌟 极其安全的默认白色护甲
-    try {
-      if (hex_color.size() == 7) {
-        r = std::stoi(hex_color.substr(1, 2), nullptr, 16);
-        g = std::stoi(hex_color.substr(3, 2), nullptr, 16);
-        b = std::stoi(hex_color.substr(5, 2), nullptr, 16);
-      } else if (hex_color.size() == 4) {
-        std::string r_str = hex_color.substr(1, 1);
-        r_str += r_str;
-        std::string g_str = hex_color.substr(2, 1);
-        g_str += g_str;
-        std::string b_str = hex_color.substr(3, 1);
-        b_str += b_str;
-
-        r = std::stoi(r_str, nullptr, 16);
-        g = std::stoi(g_str, nullptr, 16);
-        b = std::stoi(b_str, nullptr, 16);
-      } else {
-        std::cerr << "Warning: Unrecognized hex color format: " << hex_color
-                  << ". Defaulting to white." << std::endl;
-      }
-    } catch (const std::exception &e) {
-      std::cerr << "Error parsing hex color: " << hex_color
-                << ". Exception: " << e.what() << ". Defaulting to white."
-                << std::endl;
-    }
-    binary_data.push_back(r);
-    binary_data.push_back(g);
-    binary_data.push_back(b);
-  }
-  return binary_data;
-}
-
 // 创建draw信息
 crow::json::wvalue EventLogger::create_pixel_painted_event(
     const std::string &timestamp, const std::string &username,
@@ -203,8 +164,7 @@ void EventLogger::replay_canvas_state(const std::string &filename,
     }
     room_ptr->add_log_line();
   }
-  room_ptr->edit_history
-      .clear(); // 重放日志时不保留编辑历史，避免撤销操作影响重放结果
+  room_ptr->edit_history.clear(); // 重放日志时不保留编辑历史，避免撤销操作影响重放结果
   log_file.close();
 }
 
@@ -242,7 +202,7 @@ void EventLogger::clear_log_file(const std::string &filename) {
 
 // 将日志文件内容转移到新文件（比如canvas文件），并清空日志文件内容
 void EventLogger::transfer_log_to_canvas(
-    const std::string &filename, const std::vector<std::string> &canvas) {
+    const std::string &filename, const std::vector<uint8_t> &binary_canvas) {
   std::string canvas_path = CANVAS_PATH + filename;
   file_mtx.lock();
   std::ofstream canvas_file(canvas_path, std::ios::binary);
@@ -252,8 +212,8 @@ void EventLogger::transfer_log_to_canvas(
     file_mtx.unlock();
     return;
   }
-  for (const auto &color : canvas) {
-    canvas_file << color << std::endl;
+  for (const uint8_t byte : binary_canvas) {
+    canvas_file << byte;
   }
   canvas_file.close();
   file_mtx.unlock();

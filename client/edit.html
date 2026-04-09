@@ -28,9 +28,6 @@
                     <button id="submitBtn" type="button">Submit</button>
                 </div>
                 <p id="warningMessage" style="color: red; font-size: 12px; margin: 0;"></p>
-                <div id="grid" class="grid-board" role="grid" aria-label="4 by 4 grid">
-                    <!--filled by javascript here-->
-                </div>
                 <div class="brush-mode">
                     <label for="brushModeSelect">画笔模式</label>
                     <select id="brushModeSelect" aria-label="switch brush mode">
@@ -65,6 +62,10 @@
                         <button id="drawLineBtn" type="button">绘制直线</button>
                     </div>
                 </div>
+                <div class="scale-switching" aria-label="scale switching">
+                    <input id="scaleInput" type="number" placeholder="scale">
+                    <button id="scaleBtn" type="button">调整</button>
+                </div>
             </section>
         </section>
 
@@ -78,6 +79,7 @@
                     <input placeholder="height" class="file-creation" id="heightInput">
                     <button id="createFileBtn" type="button">create</button>
                 </div>
+                <button id="deleteFileBtn" type="button">删除文件</button>
                 <button id="undoBtn" type="button">撤销</button>
             </div>
             <div id="infoList" class="info-list"></div>
@@ -88,6 +90,8 @@
             <div id="opHistory" class="log-list" role="log" aria-label="operation history" aria-live="polite">
             </div>
         </aside>
+
+        <canvas id="canvas" width="16" height="16"></canvas>
     </main>
 </body>
 <script src="js/websocket.js"></script>

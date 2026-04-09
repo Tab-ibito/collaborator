@@ -2,6 +2,40 @@
 # include "../include/event_logger.h"
 # include "../include/painter.h"
 
+void Painter::set_binary_color(const std::string& color, CanvasRoom* room_ptr, int index) {
+    uint8_t r = 255, g = 255, b = 255;
+    try {
+        if (color.size() == 7) { 
+            r = std::stoi(color.substr(1, 2), nullptr, 16);
+            g = std::stoi(color.substr(3, 2), nullptr, 16);
+            b = std::stoi(color.substr(5, 2), nullptr, 16);
+        } 
+        else if (color.size() == 4) { 
+            std::string r_str = color.substr(1, 1); r_str += r_str;
+            std::string g_str = color.substr(2, 1); g_str += g_str;
+            std::string b_str = color.substr(3, 1); b_str += b_str;
+            
+            r = std::stoi(r_str, nullptr, 16);
+            g = std::stoi(g_str, nullptr, 16);
+            b = std::stoi(b_str, nullptr, 16);
+        } else {
+            std::cerr << "Invalid color format: " << color << std::endl;
+        }
+    } catch (const std::exception& e) {
+        std::cerr << "Failed to parse color: " << color << ", " << e.what() << std::endl;
+    }
+    room_ptr->binary_canvas[index*3] = r;
+    room_ptr->binary_canvas[index*3 + 1] = g;
+    room_ptr->binary_canvas[index*3 + 2] = b;
+}
+
+std::string Painter::get_string_color(const int index, const CanvasRoom* room_ptr) {
+    const auto& color = room_ptr->binary_canvas.data() + index * 3;
+    char buffer[8];
+    snprintf(buffer, sizeof(buffer), "#%02X%02X%02X", color[0], color[1], color[2]);
+    return std::string(buffer);
+}
+
 std::vector<int> Painter::get_square_indices(int index, int size, int width, int height) {
     std::vector<int> indices;
     int row = index / width;
@@ -24,12 +58,15 @@ std::vector<int> Painter::get_square_indices(int index, int size, int width, int
 // 绘制单个像素（没上锁）
 void Painter::pixel_paint(CanvasRoom* room_ptr, int index, const std::string& color) {
     Action action;
-    action.changes.push_back({index, room_ptr->canvas[index]});
+    const uint8_t r = room_ptr->binary_canvas[index*3];
+    const uint8_t g = room_ptr->binary_canvas[index*3 + 1];
+    const uint8_t b = room_ptr->binary_canvas[index*3 + 2];
+    action.changes.push_back({index, Painter::get_string_color(index, room_ptr)}); // 记录共3个字节切片
     room_ptr->edit_history.push_back(action); // 记录编辑历史
     if (room_ptr->edit_history.size() > MAX_EDIT_HISTORY) {
         room_ptr->edit_history.pop_front();
     }
-    room_ptr->canvas[index] = color;
+    Painter::set_binary_color(color, room_ptr, index);
 }
 
 // 绘制方块（没上锁）
@@ -37,8 +74,8 @@ void Painter::square_paint(CanvasRoom* room_ptr, int index, int size, const std:
     auto indices = Painter::get_square_indices(index, size, room_ptr->get_width(), room_ptr->get_height());
     Action action;
     for (int current_index : indices) {
-        action.changes.push_back({current_index, room_ptr->canvas[current_index]});
-        room_ptr->canvas[current_index] = color;
+        action.changes.push_back({current_index, Painter::get_string_color(current_index, room_ptr)}); // 记录共3个字节切片
+        Painter::set_binary_color(color, room_ptr, current_index);
     }
     room_ptr->edit_history.push_back(action); // 记录编辑历史
     if (room_ptr->edit_history.size() > MAX_EDIT_HISTORY) {
@@ -66,8 +103,8 @@ void Painter::line_paint(CanvasRoom* room_ptr, int start_index, int end_index
 
     while (true) {
         int current_index = y1 * width + x1;
-        action.changes.push_back({current_index, room_ptr->canvas[current_index]});
-        room_ptr->canvas[current_index] = color;
+        action.changes.push_back({current_index, Painter::get_string_color(current_index, room_ptr)}); // 记录共3个字节切片
+        Painter::set_binary_color(color, room_ptr, current_index);
 
         if (x1 == x2 && y1 == y2) break;
         int err2 = err * 2;
@@ -92,7 +129,7 @@ bool Painter::undo_paint(CanvasRoom* room_ptr) {
     if (!room_ptr->edit_history.empty()) {
         auto& last_changes = room_ptr->edit_history.back();
         for (const auto& change : last_changes.changes) {
-            room_ptr->canvas[change.index] = change.color;
+            set_binary_color(change.color, room_ptr, change.index);
         }
         return true; // 成功撤销
     }
@@ -113,8 +150,8 @@ void Painter::multipixel_paint(crow::json::rvalue indices, crow::json::rvalue co
     for (size_t i = 0; i < idx_list.size(); ++i) {
         int index = idx_list[i];
         std::string color = color_list[i];
-        action.changes.push_back({index, room_ptr->canvas[index]});
-        room_ptr->canvas[index] = color;
+        action.changes.push_back({index, Painter::get_string_color(index, room_ptr)}); // 记录共3个字节切片
+        Painter::set_binary_color(color, room_ptr, index);
     }
 
     room_ptr->edit_history.push_back(action); // 记录编辑历史

@@ -40,6 +40,6 @@ namespace EventLogger {
 
     void clear_log_file(const std::string& filename); // 清空日志文件内容
     
-    void transfer_log_to_canvas(const std::string& filename, const std::vector<std::string>& canvas); // 转移日志文件内容到新文件
+    void transfer_log_to_canvas(const std::string& filename, const std::vector<uint8_t>& binary_canvas); // 转移日志文件内容到新文件
 
 } // namespace EventLogger

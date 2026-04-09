@@ -1,15 +1,13 @@
 /* variable and const definition */
-const $cells = document.getElementsByClassName('grid-cell');
 const $x = document.getElementById('xInput');
 const $y = document.getElementById('yInput');
 const $submitBtn = document.getElementById('submitBtn');
 const $colorInput = document.getElementById('colorInput');
 let height = 16;
 let width = 16;
-const canvas_width = 320;
+let canvas_width = 320;
 const $warningMessage = document.getElementById("warningMessage");
 const $opHistory = document.getElementById("opHistory");
-const $gridBoard = document.getElementById("grid");
 
 const $fileListBtn = document.getElementById("fileListBtn");
 const $onlineUsersBtn = document.getElementById("onlineUsersBtn");
@@ -22,6 +20,7 @@ const $undoBtn = document.getElementById('undoBtn');
 const $brushSize = document.getElementById('brushModeSelect');
 const $widthInput = document.getElementById('widthInput');
 const $heightInput = document.getElementById('heightInput');
+const $deleteFileBtn = document.getElementById('deleteFileBtn');
 
 const $startXInput = document.getElementById('startXInput');
 const $startYInput = document.getElementById('startYInput');
@@ -33,29 +32,27 @@ const queryString = window.location.search;
 const urlParams = new URLSearchParams(queryString);
 const currentUsername = urlParams.get('username');
 
-/* helper functions */
-// 初始化画布
-const init_canvas = (width, height) => {
-    const size = canvas_width / width;
-    $gridBoard.style.gridTemplateColumns = `repeat(${width}, ${size}px)`;
-    $gridBoard.innerHTML = `<div class="grid-cell" style='width: ${size}px; height: ${size}px;' role="gridcell"></div>`.repeat(width * height);
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+const expandWorker = new Worker('js/worker.js'); // 后台读图线程
 
-    // 给每一个像素绑定一个onclick监听
-    Array.from($cells).forEach((item) => {
-        item.addEventListener("click", async(event) => {
-            event.preventDefault();
-            const index = Array.from($cells).indexOf(item);
-            await updateSubmission(index, parseInt($brushSize.value));
-        })
-    })
+const $scaleInput = document.getElementById('scaleInput');
+const $scaleBtn = document.getElementById('scaleBtn');
+let scale = 20;
+
+/* helper functions */
+const pixelPaint = (index, color) => {
+    ctx.fillStyle = color;
+    const position = getGridPosition(index);
+    ctx.fillRect(position[0], position[1], 1, 1);
 }
 
 const getGridIndex = () => {
-    return parseInt($x.value) + parseInt($y.value) * height;
+    return parseInt($x.value) + parseInt($y.value) * width;
 };
 
 const getGridPosition = (index) => {
-    return [index % width, Math.floor(index / height)];
+    return [index % width, Math.floor(index / width)];
 }
 
 const getIndexIndices = (index, size) => {
@@ -145,47 +142,23 @@ const exceptionHandler = (message) => {
     }
 }
 
-// 导出png
-class MiniPillow {
-    constructor(width, height) {
-        // 在内存里偷偷创建一个不可见的透明画板喵
-        this.canvas = document.createElement('canvas');
-        this.canvas.width = width;
-        this.canvas.height = height;
-        this.ctx = this.canvas.getContext('2d');
-    }
-
-    // 完美复刻 Python 的 putpixel 习惯喵！
-    putpixel(x, y, color) {
-        this.ctx.fillStyle = color; // 支持 '#FF0000' 或 'rgba(255,0,0,1)' 格式
-        this.ctx.fillRect(x, y, canvas_width/this.canvas.width, canvas_width/this.canvas.height); // 画一个 1x1 大小的方块
-    }
-
-    // 完美复刻 Python 的 save 习惯喵！
-    save(filename = 'my-art.bmp') {
-        this.canvas.toBlob((blob) => {
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = filename;
-            a.click();
-            URL.revokeObjectURL(url); // 乖乖打扫战场喵
-        }, 'image/bmp');
-    }
-}
-
-function exportMyDivArt() {
-    const img = new MiniPillow(height, width); // 新建画布
-    Array.from($cells).forEach((cell) => {
-        const index = Array.from($cells).indexOf(cell);
-        const [x, y] = getGridPosition(index);
-        const color = window.getComputedStyle(cell).backgroundColor;
-        img.putpixel(x, y, color);
-    });
-    img.save('my-idol-pixel.bmp');
-}
-
 /* event listeners */
+canvas.addEventListener('mousedown', function(event) {
+    const rect = canvas.getBoundingClientRect();
+    const visualX = event.clientX - rect.left;
+    const visualY = event.clientY - rect.top;
+
+    const pixelX = Math.floor(visualX / scale);
+    const pixelY = Math.floor(visualY / scale);
+
+    if (pixelX >= 0 && pixelX < width && pixelY >= 0 && pixelY < height) {
+        const index = pixelY * width + pixelX;
+        updateSubmission(index, parseInt($brushSize.value));
+    } else {
+        $warningMessage.textContent = "Invalid update data.";
+    }
+});
+
 // 给每一个文件栏绑定一个onclick监听
 const addFileEntryListener = () => {
     Array.from($fileEntry).forEach((item) => {
@@ -207,6 +180,25 @@ $submitBtn.addEventListener('click', async (event) => {
     const index = getGridIndex();
     await updateSubmission(index, parseInt($brushSize.value));
 });
+
+// 调整缩放
+$scaleBtn.addEventListener('click', async (event) => {
+    event.preventDefault();
+    scale = parseInt($scaleInput.value);
+    canvas_width = width * scale;
+    canvas.style.width = `${width * scale}px`;
+    canvas.style.height = `${height * scale}px`;
+})
+
+// 删除文件
+$deleteFileBtn.addEventListener('click', async (event) => {
+    event.preventDefault();
+    const payload = {
+        "type": "delete_file",
+        "filename": $fileNameInput.value
+    }
+    ws.send(JSON.stringify(payload));
+})
 
 // 绘制直线工具
 $drawLineBtn.addEventListener('click', async (event) => {
@@ -263,7 +255,6 @@ $onlineUsersBtn.addEventListener('click', async (event) => {
     event.preventDefault();
     const payload = {type: "get_user_list"};
     ws.send(JSON.stringify(payload));
-    exportMyDivArt();
 })
 
 /* websocket connection for edit */
@@ -303,9 +294,7 @@ const updateSubmission = async (index, size) => {
         $warningMessage.textContent = "Invalid color";
         return;
     }
-    getIndexIndices(index, size).forEach((i) => {
-        $cells[i].style.backgroundColor = color;
-    });
+
     if (ws && ws.readyState === WebSocket.OPEN) {
         ws.send(JSON.stringify(payload));
         console.log(`send to server：index ${index} in color ${color} in size ${size}! `);
@@ -322,36 +311,25 @@ ws.onmessage = (event) => {
             case "canvas_incoming":
                 height = update.height;
                 width = update.width;
-                init_canvas(width, height);
+                // init_canvas(width, height);
                 break;
             case "user_joined":
                 $opHistory.innerHTML = "<p class=\"log-item\">"+`${update.time} User ${update.username} joined the document`+"</p>" + $opHistory.innerHTML;
                 break;
             case "pixel_update":
                 $opHistory.innerHTML = "<p class=\"log-item\">"+`${update.time} User ${update.username} changed index：${update.index} in color ${update.color} for file ${update.filename}`+"</p>" + $opHistory.innerHTML;
-                $cells[update.index].style.backgroundColor = update.color;
+                pixelPaint(update.index, update.color);
                 break;
             case "square_update":
                 getIndexIndices(update.index, update.size).forEach((i) => {
-                    $cells[i].style.backgroundColor = update.color;
+                    pixelPaint(i, update.color);
                 });
                 break;
             case "line_update":
                 getLineIndices(update.start_index, update.end_index).forEach((i) => {
-                    $cells[i].style.backgroundColor = update.color;
+                    pixelPaint(i, update.color);
                 });
                 $opHistory.innerHTML = "<p class=\"log-item\">"+`${update.time} User ${update.username} drew a line in color ${update.color} for file ${update.filename}`+"</p>" + $opHistory.innerHTML;
-                break;
-            case "canvas":
-                width = update.width;
-                height = update.height;
-                init_canvas(width, height);
-                console.log(update);
-                $opHistory.innerHTML = "<p class=\"log-item\">"+`Get canvas from server`+"</p>" + $opHistory.innerHTML;
-                update.canvas.forEach((item) => {
-                    $cells[i].style.backgroundColor = item;
-                    i++;
-                })
                 break;
             case "user_list":
                 $infoList.innerHTML = "";
@@ -373,10 +351,12 @@ ws.onmessage = (event) => {
             case "user_undone":
                 $opHistory.innerHTML = "<p class=\"log-item\">"+`${update.time} User ${update.username} undone：${update.index} in color ${update.color} for file ${update.filename}`+"</p>" + $opHistory.innerHTML;
                 update.indices.forEach((item) => {
-                    $cells[item].style.backgroundColor = update.colors[i];
+                    pixelPaint(update.indices[i], update.colors[i]);
                     i++;
                 })
                 break;
+            case "file_deleted":
+                $opHistory.innerHTML = "<p class=\"log-item\">"+`${update.time} ${update.filename} was deleted`+"</p>" + $opHistory.innerHTML;
             case "exception":
                 exceptionHandler(update.message);
                 break;
@@ -384,21 +364,22 @@ ws.onmessage = (event) => {
                 break;
         }
     } else if (event.data instanceof ArrayBuffer) {
-        const buffer = new Uint8Array(event.data);
-        let j = 0;
-        for (let i = 0; i < buffer.length; i += 3) {
-            let color = "#";
-            const r = buffer[i].toString(16);
-            const g = buffer[i+1].toString(16);
-            const b = buffer[i+2].toString(16);
-            color += r.length === 1 ? "0" + r : r;
-            color += g.length === 1 ? "0" + g : g;
-            color += b.length === 1 ? "0" + b : b;
-            console.log(color);
-            $cells[j].style.backgroundColor = color;
-            j++;
-        }
+        expandWorker.postMessage(event.data, [event.data]);
     }
+};
+
+expandWorker.onmessage = function(event) {
+    const finalBuffer = event.data;
+    const clampedArray = new Uint8ClampedArray(finalBuffer);
+
+    // 极其丝滑地包装成 ImageData 并上屏！
+    const imageData = new ImageData(clampedArray, width, height);
+    canvas.width = width;
+    canvas.height = height;
+    canvas.style.width = `${width * scale}px`;
+    canvas.style.height = `${height * scale}px`;
+    ctx.putImageData(imageData, 0, 0);
+    console.log("imageData received and rendered on canvas");
 };
 
 ws.onclose = () => {

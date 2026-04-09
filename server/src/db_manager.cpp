@@ -167,6 +167,24 @@ bool DBManager::get_canvas_metadata(const std::string& filename, int& width, int
     }
 }
 
+bool DBManager::delete_canvas_metadata(const std::string& filename) {
+    const char* sql = "DELETE FROM canvas_metadata WHERE filename = ?;";
+    sqlite3_stmt* stmt;
+    if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) != SQLITE_OK) {
+        std::cerr << "Failed to prepare statement: " << sqlite3_errmsg(db) << std::endl;
+        return false;
+    }
+    sqlite3_bind_text(stmt, 1, filename.c_str(), -1, SQLITE_TRANSIENT);
+    if (sqlite3_step(stmt) != SQLITE_DONE) {
+        std::cerr << "Failed to execute statement: " << sqlite3_errmsg(db) << std::endl;
+        sqlite3_finalize(stmt);
+        return false;
+    }
+    sqlite3_finalize(stmt);
+    std::cout << "Canvas metadata deleted successfully for filename: " << filename << std::endl;
+    return true;
+}
+
 std::vector<std::string> DBManager::get_canvas_list() {
     std::vector<std::string> canvas_list;
     const char* sql = "SELECT filename FROM canvas_metadata;";
