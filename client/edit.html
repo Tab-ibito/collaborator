@@ -8,8 +8,9 @@
 </head>
 <body>
     <main class="editor-page">
-        <section class="editor-left" aria-label="grid editor panel">
-            <section class="grid-panel" aria-label="4 by 4 grid">
+        <div class="editor-main">
+            <section class="editor-left" aria-label="grid editor panel">
+                <section class="grid-panel" aria-label="4 by 4 grid">
                 <div class="edit-controls" aria-label="grid input controls">
                     <label>
                         X
@@ -40,58 +41,65 @@
 
                 <div class="line-tool" aria-label="line drawing tool">
                     <h3 class="line-tool-title">直线工具</h3>
-                    <div class="line-controls" aria-label="line coordinates input">
-                        <label>
-                            起始X
-                            <input id="startXInput" type="number" min="0" max="3" placeholder="0-3">
-                        </label>
-                        <label>
-                            起始Y
-                            <input id="startYInput" type="number" min="0" max="3" placeholder="0-3">
-                        </label>
-                        <label>
-                            终止X
-                            <input id="endXInput" type="number" min="0" max="3" placeholder="0-3">
-                        </label>
-                        <label>
-                            终止Y
-                            <input id="endYInput" type="number" min="0" max="3" placeholder="0-3">
-                        </label>
+                    <div class="line-tool-row" aria-label="line coordinates input and draw action">
+                        <input id="startXInput" type="number" min="0" max="3" placeholder="起始X">
+                        <input id="startYInput" type="number" min="0" max="3" placeholder="起始Y">
+                        <input id="endXInput" type="number" min="0" max="3" placeholder="终止X">
+                        <input id="endYInput" type="number" min="0" max="3" placeholder="终止Y">
+                        <button id="drawLineBtn" type="button">绘制</button>
                     </div>
-                    <div class="line-actions" aria-label="draw line action">
-                        <button id="drawLineBtn" type="button">绘制直线</button>
+                </div>
+
+                <div class="circle-tool" aria-label="circle drawing tool">
+                    <h3 class="circle-tool-title">画圆工具</h3>
+                    <div class="circle-tool-row" aria-label="circle coordinates input and draw action">
+                        <input id="circleCenterXInput" type="number" min="0" max="3" placeholder="圆心X">
+                        <input id="circleCenterYInput" type="number" min="0" max="3" placeholder="圆心Y">
+                        <input id="circleRadiusInput" type="number" min="0" placeholder="半径">
+                        <button id="drawCircleBtn" type="button">绘制</button>
                     </div>
                 </div>
                 <div class="scale-switching" aria-label="scale switching">
                     <input id="scaleInput" type="number" placeholder="scale">
                     <button id="scaleBtn" type="button">调整</button>
                 </div>
+                <input type="file" id="imageUploader" accept="image/*" style="display: none;">
+                <button id="uploadBtn" type="button" onclick="$imageUploader.click()">
+                    导入图片
+                </button>
+                </section>
             </section>
-        </section>
 
-        <section class="editor-middle" aria-label="quick actions">
-            <div class="middle-actions">
-                <button id="fileListBtn" type="button">文件列表</button>
-                <button id="onlineUsersBtn" type="button">在线用户列表</button>
-                <div id="createFile">
-                    <input placeholder="filename..." class="file-creation" id="fileNameInput">
-                    <input placeholder="width" class="file-creation" id="widthInput">
-                    <input placeholder="height" class="file-creation" id="heightInput">
-                    <button id="createFileBtn" type="button">create</button>
+            <section class="editor-middle" aria-label="quick actions">
+                <div class="middle-panel-left">
+                    <div class="middle-actions">
+                        <button id="fileListBtn" type="button">文件列表</button>
+                        <button id="onlineUsersBtn" type="button">在线用户列表</button>
+                        <div id="createFile">
+                            <input placeholder="filename..." class="file-creation" id="fileNameInput">
+                            <input placeholder="width" class="file-creation" id="widthInput">
+                            <input placeholder="height" class="file-creation" id="heightInput">
+                            <button id="createFileBtn" type="button">create</button>
+                        </div>
+                        <button id="deleteFileBtn" type="button">删除文件</button>
+                        <button id="undoBtn" type="button">撤销</button>
+                    </div>
                 </div>
-                <button id="deleteFileBtn" type="button">删除文件</button>
-                <button id="undoBtn" type="button">撤销</button>
-            </div>
-            <div id="infoList" class="info-list"></div>
+                <div class="middle-panel-right">
+                    <div id="infoList" class="info-list"></div>
+                </div>
+            </section>
+
+            <aside class="editor-right" aria-label="operation log">
+                <h2 class="log-title">操作记录</h2>
+                <div id="opHistory" class="log-list" role="log" aria-label="operation history" aria-live="polite">
+                </div>
+            </aside>
+        </div>
+
+        <section class="canvas-wrapper" aria-label="canvas panel">
+            <canvas id="canvas" width="16" height="16"></canvas>
         </section>
-
-        <aside class="editor-right" aria-label="operation log">
-            <h2 class="log-title">操作记录</h2>
-            <div id="opHistory" class="log-list" role="log" aria-label="operation history" aria-live="polite">
-            </div>
-        </aside>
-
-        <canvas id="canvas" width="16" height="16"></canvas>
     </main>
 </body>
 <script src="js/websocket.js"></script>

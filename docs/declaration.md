@@ -55,7 +55,8 @@ Body:
 | `get_user_list` | 获取用户列表 | 无                      |
 | `create_file`   | 创建文件   | `filename` `width` `height`  |
 | `switch_file`   | 切换文件   | `filename`             |
-| `undo`          | 撤销     | 无                      |
+| `undo`          | 撤销     | 无                       |
+| `delete_file`   | 删除文件 | `filename`               |
 
 ## Websocket 服务器端发送的type
 
@@ -66,11 +67,13 @@ Body:
 | `user_left`    | 用户离开   | `username` `time`                        |
 | ***`pixel_update`*** | 更新像素   | `username` `color` `index` `time`        |
 | ***`square_update`*** | 更新方形   | `username` `color` `index` `time` `size` |
+| ***`circle_update`*** | 更新圆形   | `username` `color` `index` `time` `radius` |
 | `canvas`       | 画布     | `canvas` `width` `height`                         |
 | `file_list`    | 文件列表   | `files` `current_working`                |
 | `user_list`    | 用户列表   | `users`                                  |
 | `user_switched_file` | 用户切换文件 | `username` `filename` `time`             |
 | ***`user_undone`***  | 用户撤销操作 | `username` `time` `index` `color`        |
+| `file_deleted` | 用户删除文件 | `time` `filename` |
 
 ***加粗加斜***参数都直接存储到 `.log` 中。
 

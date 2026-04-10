@@ -77,6 +77,21 @@ crow::json::wvalue EventLogger::create_line_painted_event(
   return event;
 }
 
+crow::json::wvalue EventLogger::create_circle_painted_event(
+    const std::string &timestamp, const std::string &username,
+    const std::string &filename, int index, int radius,
+    const std::string &color) {
+  crow::json::wvalue event;
+  event["timestamp"] = timestamp;
+  event["username"] = username;
+  event["filename"] = filename;
+  event["index"] = index;
+  event["radius"] = radius;
+  event["color"] = color;
+  event["type"] = "circle_update";
+  return event;
+}
+
 crow::json::wvalue EventLogger::create_undo_event(const std::string &timestamp,
                                                   const std::string &username,
                                                   const std::string &filename,
@@ -153,6 +168,13 @@ void EventLogger::replay_canvas_state(const std::string &filename,
       std::string color = x["color"].s();
       room_ptr->room_mtx.lock();
       Painter::line_paint(room_ptr, start_index, end_index, color);
+      room_ptr->room_mtx.unlock();
+    } else if (event_type == "circle_update") {
+      int center_index = x["center_index"].i();
+      int radius = x["radius"].i();
+      std::string color = x["color"].s();
+      room_ptr->room_mtx.lock();
+      Painter::circle_paint(room_ptr, center_index, radius, color);
       room_ptr->room_mtx.unlock();
     } else if (event_type == "multipixel_update" ||
                event_type == "user_undone") {

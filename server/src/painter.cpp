@@ -124,6 +124,48 @@ void Painter::line_paint(CanvasRoom* room_ptr, int start_index, int end_index
     }
 }
 
+// 画圆操作（没有上锁）
+void Painter::circle_paint(CanvasRoom* room_ptr, int center_index, int radius,
+const std::string& color) {
+    int width = room_ptr->get_width();
+    int height = room_ptr->get_height();
+    int cx = center_index % width;
+    int cy = center_index / width;
+
+    Action action;
+
+    int x = radius;
+    int y = 0;
+    int err = 0;
+
+    while (x >= y) {
+        std::vector<std::pair<int, int>> points = {
+            {cx + x, cy + y}, {cx + y, cy + x}, {cx - y, cy + x}, {cx - x, cy + y},
+            {cx - x, cy - y}, {cx - y, cy - x}, {cx + y, cy - x}, {cx + x, cy - y}
+        };
+        for (const auto& [px, py] : points) {
+            if (0 <= px && px < width && 0 <= py && py < height) {
+                int current_index = py * width + px;
+                action.changes.push_back({current_index, Painter::get_string_color(current_index, room_ptr)}); // 记录共3个字节切片
+                Painter::set_binary_color(color, room_ptr, current_index);
+            }
+        }
+        if (err <= 0) {
+            y += 1;
+            err += 2*y + 1;
+        }
+        if (err > 0) {
+            x -= 1;
+            err -= 2*x + 1;
+        }
+    }
+
+    room_ptr->edit_history.push_back(action); // 记录编辑历史
+    if (room_ptr->edit_history.size() > MAX_EDIT_HISTORY) {
+        room_ptr->edit_history.pop_front();
+    }
+}
+
 // 撤销操作（没有上锁）
 bool Painter::undo_paint(CanvasRoom* room_ptr) {
     if (!room_ptr->edit_history.empty()) {

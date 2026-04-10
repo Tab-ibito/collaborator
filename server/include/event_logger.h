@@ -30,6 +30,8 @@ namespace EventLogger {
 
     crow::json::wvalue create_line_painted_event(const std::string& timestamp, const std::string& username, const std::string& filename, int start_index, int end_index, const std::string& color); // 创建线条绘制事件
 
+    crow::json::wvalue create_circle_painted_event(const std::string& timestamp, const std::string& username, const std::string& filename, int center_index, int radius, const std::string& color); // 创建圆形绘制事件
+
     crow::json::wvalue create_undo_event(const std::string& timestamp, const std::string& username, const std::string& filename, const CanvasRoom* room_ptr); // 创建多像素绘制事件
 
     bool create_blank_log(const std::string& filename); // 创建空日志文件

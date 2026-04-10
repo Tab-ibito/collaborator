@@ -1,11 +1,23 @@
 /* variable and const definition */
+let height = 16;
+let width = 16;
+let canvas_width = 320;
+let scale = 20;
+const targetCanvasWidthPx = 500;
+const maxOpHistory = 10;
+let infoListMode = "none";
+
+const setInfoListMode = (mode) => {
+    infoListMode = mode;
+    $fileListBtn.classList.toggle("file-list-mode-active", mode === "normal");
+    $deleteFileBtn.classList.toggle("delete-mode-active", mode === "delete");
+}
+
 const $x = document.getElementById('xInput');
 const $y = document.getElementById('yInput');
 const $submitBtn = document.getElementById('submitBtn');
 const $colorInput = document.getElementById('colorInput');
-let height = 16;
-let width = 16;
-let canvas_width = 320;
+
 const $warningMessage = document.getElementById("warningMessage");
 const $opHistory = document.getElementById("opHistory");
 
@@ -28,6 +40,11 @@ const $endXInput = document.getElementById('endXInput');
 const $endYInput = document.getElementById('endYInput');
 const $drawLineBtn = document.getElementById('drawLineBtn');
 
+const $circleCenterXInput = document.getElementById('circleCenterXInput');
+const $circleCenterYInput = document.getElementById('circleCenterYInput');
+const $circleRadiusInput = document.getElementById('circleRadiusInput');
+const $drawCircleBtn = document.getElementById('drawCircleBtn');
+
 const queryString = window.location.search;
 const urlParams = new URLSearchParams(queryString);
 const currentUsername = urlParams.get('username');
@@ -38,7 +55,44 @@ const expandWorker = new Worker('js/worker.js'); // 后台读图线程
 
 const $scaleInput = document.getElementById('scaleInput');
 const $scaleBtn = document.getElementById('scaleBtn');
-let scale = 20;
+
+const $imageUploader = document.getElementById('imageUploader');
+
+const applyScale = (nextScale) => {
+    if (!Number.isFinite(nextScale) || nextScale < 1) {
+        return;
+    }
+
+    scale = Math.round(nextScale);
+    canvas_width = width * scale;
+    canvas.style.width = `${width * scale}px`;
+    canvas.style.height = `${height * scale}px`;
+    $scaleInput.value = String(scale);
+}
+
+const autoAdjustScale = () => {
+    if (!Number.isFinite(width) || width <= 0 || !Number.isFinite(height) || height <= 0) {
+        return;
+    }
+
+    const nextScale = Math.max(1, Math.round(targetCanvasWidthPx / width));
+    applyScale(nextScale);
+}
+
+const hideInfoList = () => {
+    $infoList.style.display = "none";
+    $infoList.innerHTML = "";
+}
+
+const showInfoList = () => {
+    $infoList.style.display = "block";
+}
+
+const scrollPageToBottom = () => {
+    requestAnimationFrame(() => {
+        window.scrollTo({ top: document.documentElement.scrollHeight, behavior: "smooth" });
+    });
+}
 
 /* helper functions */
 const pixelPaint = (index, color) => {
@@ -119,6 +173,55 @@ const getLineIndices = (startIndex, endIndex) => {
     return indices;
 }
 
+// 绘制圆
+const getCircleIndices = (index, radius) => {
+    const parsedIndex = parseInt(index, 10);
+    const parsedRadius = parseInt(radius, 10);
+
+    if (Number.isNaN(parsedIndex) || parsedIndex < 0 || parsedIndex >= height * width) {
+        return [];
+    }
+
+    if (Number.isNaN(parsedRadius) || parsedRadius < 0) {
+        return [];
+    }
+
+    const [centerX, centerY] = getGridPosition(parsedIndex);
+    const indices = [];
+
+    let x = parsedRadius;
+    let y = 0;
+    let err = 0;
+
+    while (x >= y) {
+        const points = [
+            [centerX + x, centerY + y], [centerX + y, centerY + x],
+            [centerX - y, centerY + x], [centerX - x, centerY + y],
+            [centerX - x, centerY - y], [centerX - y, centerY - x],
+            [centerX + y, centerY - x], [centerX + x, centerY - y],
+        ];
+
+        points.forEach(([px, py]) => {
+            if (px >= 0 && px < width && py >= 0 && py < height) {
+                indices.push(py * width + px);
+            }
+        });
+
+        if (err <= 0) {
+            y += 1;
+            err += 2 * y + 1;
+        }
+
+        if (err > 0) {
+            x -= 1;
+            err -= 2 * x + 1;
+        }
+    }
+
+    return indices;
+}
+
+// 打印异常消息
 const exceptionHandler = (message) => {
     console.warn(message);
     if (message === "invalid_username") {
@@ -142,8 +245,20 @@ const exceptionHandler = (message) => {
     }
 }
 
+// 添加操作历史记录显示
+const addOpHistory = (entry) => {
+    const logItem = document.createElement("p");
+    logItem.className = "log-item";
+    logItem.textContent = entry;
+    $opHistory.prepend(logItem);
+
+    while ($opHistory.children.length > maxOpHistory) {
+        $opHistory.removeChild($opHistory.lastElementChild);
+    }
+}
+
 /* event listeners */
-canvas.addEventListener('mousedown', function(event) {
+canvas.addEventListener('mousedown', function (event) {
     const rect = canvas.getBoundingClientRect();
     const visualX = event.clientX - rect.left;
     const visualY = event.clientY - rect.top;
@@ -162,8 +277,10 @@ canvas.addEventListener('mousedown', function(event) {
 // 给每一个文件栏绑定一个onclick监听
 const addFileEntryListener = () => {
     Array.from($fileEntry).forEach((item) => {
-        item.addEventListener("click", async(event) => {
+        item.addEventListener("click", async (event) => {
             event.preventDefault();
+            hideInfoList();
+            setInfoListMode("none");
             const payload = {
                 "type": "switch_file",
                 "filename": item.textContent
@@ -172,6 +289,25 @@ const addFileEntryListener = () => {
             ws.send(JSON.stringify(payload));
         })
     })
+}
+
+// 删除模式下绑定左键删除
+const addDeleteFileEntryListener = () => {
+    Array.from($fileEntry).forEach((item) => {
+        item.addEventListener("click", async (event) => {
+            event.preventDefault();
+            if (event.button !== 0) {
+                return;
+            }
+            hideInfoList();
+            setInfoListMode("none");
+            const payload = {
+                type: "delete_file",
+                filename: item.textContent.trim()
+            };
+            ws.send(JSON.stringify(payload));
+        });
+    });
 }
 
 // 通过submit按钮方式提交更新
@@ -184,19 +320,21 @@ $submitBtn.addEventListener('click', async (event) => {
 // 调整缩放
 $scaleBtn.addEventListener('click', async (event) => {
     event.preventDefault();
-    scale = parseInt($scaleInput.value);
-    canvas_width = width * scale;
-    canvas.style.width = `${width * scale}px`;
-    canvas.style.height = `${height * scale}px`;
+    const nextScale = parseInt($scaleInput.value, 10);
+    applyScale(nextScale);
 })
 
 // 删除文件
 $deleteFileBtn.addEventListener('click', async (event) => {
     event.preventDefault();
-    const payload = {
-        "type": "delete_file",
-        "filename": $fileNameInput.value
+    if (infoListMode === "delete") {
+        hideInfoList();
+        setInfoListMode("none");
+        return;
     }
+    setInfoListMode("delete");
+    showInfoList();
+    const payload = { type: "get_file_list" };
     ws.send(JSON.stringify(payload));
 })
 
@@ -222,9 +360,51 @@ $drawLineBtn.addEventListener('click', async (event) => {
     }
 });
 
+// 绘制圆工具
+if ($drawCircleBtn && $circleCenterXInput && $circleCenterYInput && $circleRadiusInput) {
+    $drawCircleBtn.addEventListener('click', async (event) => {
+        event.preventDefault();
+
+        const centerX = parseInt($circleCenterXInput.value, 10);
+        const centerY = parseInt($circleCenterYInput.value, 10);
+        const radius = parseInt($circleRadiusInput.value, 10);
+
+        if (Number.isNaN(centerX) || Number.isNaN(centerY) || Number.isNaN(radius)) {
+            $warningMessage.textContent = "Invalid circle input";
+            return;
+        }
+
+        const centerIndex = centerX + centerY * width;
+        if (centerIndex < 0 || centerIndex >= height * width || radius < 0) {
+            $warningMessage.textContent = "Invalid circle input";
+            return;
+        }
+
+        if (!CSS.supports("color", $colorInput.value)) {
+            $warningMessage.textContent = "Invalid color";
+            return;
+        }
+
+        const payload = {
+            type: "circle_update",
+            index: centerIndex,
+            radius: radius,
+            color: $colorInput.value
+        };
+        ws.send(JSON.stringify(payload));
+    });
+}
+
 // 获取目录内文件名单
 $fileListBtn.addEventListener('click', async (event) => {
     event.preventDefault();
+    if (infoListMode === "normal") {
+        hideInfoList();
+        setInfoListMode("none");
+        return;
+    }
+    setInfoListMode("normal");
+    showInfoList();
     const payload = {type: "get_file_list"};
     ws.send(JSON.stringify(payload));
 })
@@ -253,8 +433,43 @@ $undoBtn.addEventListener('click', async (event) => {
 // 获取在线用户名单
 $onlineUsersBtn.addEventListener('click', async (event) => {
     event.preventDefault();
+    setInfoListMode("none");
+    showInfoList();
     const payload = {type: "get_user_list"};
     ws.send(JSON.stringify(payload));
+})
+
+// 把图片打包成二进制发给服务端
+$imageUploader.addEventListener('change', async (event) => {
+    event.preventDefault();
+    const file = event.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        // 读图
+        const img = new Image();
+        img.onload = function() {
+            const offscreenCanvas = document.createElement('canvas');
+            offscreenCanvas.width = img.naturalWidth;   // 16
+            offscreenCanvas.height = img.naturalHeight;  // 16
+            const offCtx = offscreenCanvas.getContext('2d');
+            offCtx.drawImage(img, 0, 0);
+
+            // 包装二进制数据
+            const imageData = offCtx.getImageData(0, 0, offscreenCanvas.width, offscreenCanvas.height).data;
+            const buffer = new ArrayBuffer(4 + imageData.byteLength);
+            const view = new DataView(buffer);
+            view.setUint16(0, img.naturalWidth, true);
+            view.setUint16(2, img.naturalHeight, true);
+            const payloadView = new Uint8Array(buffer, 4);
+            payloadView.set(imageData);
+            ws.send(buffer);
+            console.log("Uploaded image sent to server");
+            event.target.value = '';
+        }
+        img.src = e.target.result;
+    }
+    reader.readAsDataURL(file);
 })
 
 /* websocket connection for edit */
@@ -275,7 +490,7 @@ ws.onopen = () => {
 const updateSubmission = async (index, size) => {
     const color = $colorInput.value;
     let payload = {};
-    if (size === 1){
+    if (size === 1) {
         payload = {
             type: 'pixel_update',
             index: index,
@@ -311,13 +526,13 @@ ws.onmessage = (event) => {
             case "canvas_incoming":
                 height = update.height;
                 width = update.width;
-                // init_canvas(width, height);
+                autoAdjustScale();
                 break;
             case "user_joined":
-                $opHistory.innerHTML = "<p class=\"log-item\">"+`${update.time} User ${update.username} joined the document`+"</p>" + $opHistory.innerHTML;
+                addOpHistory(`${update.time} User ${update.username} joined the document.`);
                 break;
             case "pixel_update":
-                $opHistory.innerHTML = "<p class=\"log-item\">"+`${update.time} User ${update.username} changed index：${update.index} in color ${update.color} for file ${update.filename}`+"</p>" + $opHistory.innerHTML;
+                addOpHistory(`${update.time} User ${update.username} changed index：${update.index} in color ${update.color} for file ${update.filename}`);
                 pixelPaint(update.index, update.color);
                 break;
             case "square_update":
@@ -329,7 +544,14 @@ ws.onmessage = (event) => {
                 getLineIndices(update.start_index, update.end_index).forEach((i) => {
                     pixelPaint(i, update.color);
                 });
-                $opHistory.innerHTML = "<p class=\"log-item\">"+`${update.time} User ${update.username} drew a line in color ${update.color} for file ${update.filename}`+"</p>" + $opHistory.innerHTML;
+                addOpHistory(`${update.time} User ${update.username} drew a line in color ${update.color} for file ${update.filename}`);
+                break;
+            case "circle_update":
+                console.log("Circle update");
+                getCircleIndices(update.index, update.radius).forEach((i) => {
+                    pixelPaint(i, update.color);
+                });
+                addOpHistory(`${update.time} User ${update.username} drew a circle in color ${update.color} for file ${update.filename}`);
                 break;
             case "user_list":
                 $infoList.innerHTML = "";
@@ -339,24 +561,32 @@ ws.onmessage = (event) => {
                 break;
             case "file_list":
                 $infoList.innerHTML = "";
-                update.files.forEach((item) => {
-                    $infoList.innerHTML += `<p class="file-entry">${item}</p>`;
-                })
-                $infoList.innerHTML += `<p style="color: red"> Current Working on: ${update.current_working} </p>`;
-                addFileEntryListener();
+                if (infoListMode === "delete") {
+                    update.files.forEach((item) => {
+                        $infoList.innerHTML += `<p class="file-entry file-entry-delete">${item}</p>`;
+                    });
+                    addDeleteFileEntryListener();
+                } else {
+                    update.files.forEach((item) => {
+                        $infoList.innerHTML += `<p class="file-entry">${item}</p>`;
+                    });
+                    $infoList.innerHTML += `<p style="color: red"> Current Working on: ${update.current_working} </p>`;
+                    addFileEntryListener();
+                }
                 break;
             case "user_switched_file":
-                $opHistory.innerHTML = "<p class=\"log-item\">"+`${update.time} User ${update.username} switched current file to ${update.filename}`+"</p>" + $opHistory.innerHTML;
+                addOpHistory(`${update.time} User ${update.username} switched current file to ${update.filename}`);
                 break;
             case "user_undone":
-                $opHistory.innerHTML = "<p class=\"log-item\">"+`${update.time} User ${update.username} undone：${update.index} in color ${update.color} for file ${update.filename}`+"</p>" + $opHistory.innerHTML;
+                addOpHistory(`${update.time} User ${update.username} undone：${update.index} in color ${update.color} for file ${update.filename}`);
                 update.indices.forEach((item) => {
                     pixelPaint(update.indices[i], update.colors[i]);
                     i++;
                 })
                 break;
             case "file_deleted":
-                $opHistory.innerHTML = "<p class=\"log-item\">"+`${update.time} ${update.filename} was deleted`+"</p>" + $opHistory.innerHTML;
+                addOpHistory(`${update.time} ${update.filename} was deleted`);
+                break;
             case "exception":
                 exceptionHandler(update.message);
                 break;
@@ -368,17 +598,16 @@ ws.onmessage = (event) => {
     }
 };
 
-expandWorker.onmessage = function(event) {
+expandWorker.onmessage = function (event) {
     const finalBuffer = event.data;
     const clampedArray = new Uint8ClampedArray(finalBuffer);
-
     // 极其丝滑地包装成 ImageData 并上屏！
     const imageData = new ImageData(clampedArray, width, height);
     canvas.width = width;
     canvas.height = height;
-    canvas.style.width = `${width * scale}px`;
-    canvas.style.height = `${height * scale}px`;
+    applyScale(scale);
     ctx.putImageData(imageData, 0, 0);
+    scrollPageToBottom();
     console.log("imageData received and rendered on canvas");
 };
 
